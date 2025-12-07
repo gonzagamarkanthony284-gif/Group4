@@ -16,6 +16,7 @@ public class LoginWindow extends JFrame {
     private final JPasswordField passField = new JPasswordField();
     private final JButton loginBtn = new JButton("Login");
     private final JButton doctorSignUpBtn = new JButton("Doctor Sign-Up");
+    private final JButton servicesBtn = new JButton("View Services");
     private final JCheckBox showPass = new JCheckBox("Show Password");
     private char defaultEcho = (char)0;
     
@@ -131,17 +132,25 @@ public class LoginWindow extends JFrame {
         
         loginBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
         stylePrimary(loginBtn, accent, Color.WHITE);
-        loginBtn.setMaximumSize(new Dimension(120, 32));
-        loginBtn.setPreferredSize(new Dimension(120, 32));
+        loginBtn.setMaximumSize(new Dimension(100, 32));
+        loginBtn.setPreferredSize(new Dimension(100, 32));
         buttonPanel.add(loginBtn);
         
-        buttonPanel.add(Box.createHorizontalStrut(8));
+        buttonPanel.add(Box.createHorizontalStrut(6));
         
-        doctorSignUpBtn.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        doctorSignUpBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         styleSecondary(doctorSignUpBtn, Color.WHITE, accent);
-        doctorSignUpBtn.setMaximumSize(new Dimension(140, 32));
-        doctorSignUpBtn.setPreferredSize(new Dimension(140, 32));
+        doctorSignUpBtn.setMaximumSize(new Dimension(120, 32));
+        doctorSignUpBtn.setPreferredSize(new Dimension(120, 32));
         buttonPanel.add(doctorSignUpBtn);
+        
+        buttonPanel.add(Box.createHorizontalStrut(6));
+        
+        servicesBtn.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        styleSecondary(servicesBtn, Color.WHITE, new Color(34, 197, 94));
+        servicesBtn.setMaximumSize(new Dimension(120, 32));
+        servicesBtn.setPreferredSize(new Dimension(120, 32));
+        buttonPanel.add(servicesBtn);
         
         card.add(buttonPanel);
 
@@ -157,6 +166,7 @@ public class LoginWindow extends JFrame {
         showPass.addActionListener(e -> passField.setEchoChar(showPass.isSelected() ? (char)0 : defaultEcho));
         loginBtn.addActionListener(e -> doLogin());
         doctorSignUpBtn.addActionListener(e -> openDoctorSignUp());
+        servicesBtn.addActionListener(e -> openServices());
         getRootPane().setDefaultButton(loginBtn);
     }
 
@@ -196,6 +206,12 @@ public class LoginWindow extends JFrame {
     private void openDoctorSignUp() {
         DoctorSignUpWindow signUpWindow = new DoctorSignUpWindow();
         signUpWindow.setVisible(true);
+    }
+
+    private void openServices() {
+        hpms.service.ServiceService.initializeDefaultServices();
+        ServicesWindow servicesWindow = new ServicesWindow();
+        servicesWindow.setVisible(true);
     }
 
     public static void seedRooms() {
