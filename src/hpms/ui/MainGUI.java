@@ -52,7 +52,7 @@ public class MainGUI extends JFrame {
         UserRole role = AuthService.current == null ? null : AuthService.current.role;
         java.util.List<String> menuList = new java.util.ArrayList<>();
         if (role == UserRole.ADMIN || role == null) {
-            menuList.addAll(java.util.Arrays.asList("Dashboard","Patients","Appointments","Billing","Rooms","Staff","Services","Reports","Administration","Settings","Logout"));
+            menuList.addAll(java.util.Arrays.asList("Dashboard","Patients","Appointments","Billing","Rooms","Staff","Reports","Administration","Settings","Logout"));
         } else if (role == UserRole.DOCTOR) {
             menuList.addAll(java.util.Arrays.asList("Dashboard","Patients","Appointments","Reports","Settings","Logout"));
         } else if (role == UserRole.NURSE) {
@@ -60,7 +60,7 @@ public class MainGUI extends JFrame {
         } else if (role == UserRole.CASHIER) {
             menuList.addAll(java.util.Arrays.asList("Dashboard","Billing","Reports","Settings","Logout"));
         } else {
-            menuList.addAll(java.util.Arrays.asList("Dashboard","Patients","Appointments","Billing","Rooms","Staff","Services","Reports","Settings","Logout"));
+            menuList.addAll(java.util.Arrays.asList("Dashboard","Patients","Appointments","Billing","Rooms","Staff","Reports","Settings","Logout"));
         }
         for (String m : menuList) sidebar.add(menuBtnWithTooltip(m));
         add(sidebar, BorderLayout.WEST);
@@ -121,7 +121,6 @@ public class MainGUI extends JFrame {
         }
         
         if (menuList.contains("Staff")) content.add("Staff", new StaffPanel());
-        if (menuList.contains("Services")) content.add("Services", new ServicesPanel());
         if (role != UserRole.CASHIER) {
             if (menuList.contains("Reports")) content.add("Reports", new ReportsPanel());
         }
@@ -154,7 +153,6 @@ public class MainGUI extends JFrame {
             case "Rooms": return "Assign or vacate rooms and beds";
             
             case "Staff": return "Manage staff records and user accounts";
-            case "Services": return "Manage hospital services and departments";
             case "Reports": return "Run reports and view activity logs";
             case "Administration": return "Admin tools: users, backups, security";
             case "Settings": return "Application settings and preferences";

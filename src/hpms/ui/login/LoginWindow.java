@@ -15,7 +15,6 @@ public class LoginWindow extends JFrame {
     private final JTextField userField = new JTextField();
     private final JPasswordField passField = new JPasswordField();
     private final JButton loginBtn = new JButton("Login");
-    private final JButton doctorSignUpBtn = new JButton("Doctor Sign-Up");
     private final JButton servicesBtn = new JButton("View Services");
     private final JCheckBox showPass = new JCheckBox("Show Password");
     private char defaultEcho = (char)0;
@@ -138,14 +137,6 @@ public class LoginWindow extends JFrame {
         
         buttonPanel.add(Box.createHorizontalStrut(6));
         
-        doctorSignUpBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        styleSecondary(doctorSignUpBtn, Color.WHITE, accent);
-        doctorSignUpBtn.setMaximumSize(new Dimension(120, 32));
-        doctorSignUpBtn.setPreferredSize(new Dimension(120, 32));
-        buttonPanel.add(doctorSignUpBtn);
-        
-        buttonPanel.add(Box.createHorizontalStrut(6));
-        
         servicesBtn.setAlignmentX(Component.RIGHT_ALIGNMENT);
         styleSecondary(servicesBtn, Color.WHITE, new Color(34, 197, 94));
         servicesBtn.setMaximumSize(new Dimension(120, 32));
@@ -165,7 +156,6 @@ public class LoginWindow extends JFrame {
         defaultEcho = passField.getEchoChar();
         showPass.addActionListener(e -> passField.setEchoChar(showPass.isSelected() ? (char)0 : defaultEcho));
         loginBtn.addActionListener(e -> doLogin());
-        doctorSignUpBtn.addActionListener(e -> openDoctorSignUp());
         servicesBtn.addActionListener(e -> openServices());
         getRootPane().setDefaultButton(loginBtn);
     }
@@ -201,11 +191,6 @@ public class LoginWindow extends JFrame {
             JOptionPane.showMessageDialog(this, String.join("\n", out), "Login Failed", JOptionPane.ERROR_MESSAGE);
             passField.setText("");
         }
-    }
-
-    private void openDoctorSignUp() {
-        DoctorSignUpWindow signUpWindow = new DoctorSignUpWindow();
-        signUpWindow.setVisible(true);
     }
 
     private void openServices() {
