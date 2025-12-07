@@ -15,6 +15,7 @@ public class LoginWindow extends JFrame {
     private final JTextField userField = new JTextField();
     private final JPasswordField passField = new JPasswordField();
     private final JButton loginBtn = new JButton("Login");
+    private final JButton doctorSignUpBtn = new JButton("Doctor Sign-Up");
     private final JCheckBox showPass = new JCheckBox("Show Password");
     private char defaultEcho = (char)0;
     
@@ -124,10 +125,25 @@ public class LoginWindow extends JFrame {
         card.add(showPass);
         card.add(Box.createVerticalStrut(12));
 
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.X_AXIS));
+        buttonPanel.setBackground(Color.WHITE);
+        
         loginBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
         stylePrimary(loginBtn, accent, Color.WHITE);
         loginBtn.setMaximumSize(new Dimension(120, 32));
-        card.add(loginBtn);
+        loginBtn.setPreferredSize(new Dimension(120, 32));
+        buttonPanel.add(loginBtn);
+        
+        buttonPanel.add(Box.createHorizontalStrut(8));
+        
+        doctorSignUpBtn.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        styleSecondary(doctorSignUpBtn, Color.WHITE, accent);
+        doctorSignUpBtn.setMaximumSize(new Dimension(140, 32));
+        doctorSignUpBtn.setPreferredSize(new Dimension(140, 32));
+        buttonPanel.add(doctorSignUpBtn);
+        
+        card.add(buttonPanel);
 
         right.add(Box.createVerticalGlue());
         right.add(card);
@@ -140,6 +156,7 @@ public class LoginWindow extends JFrame {
         defaultEcho = passField.getEchoChar();
         showPass.addActionListener(e -> passField.setEchoChar(showPass.isSelected() ? (char)0 : defaultEcho));
         loginBtn.addActionListener(e -> doLogin());
+        doctorSignUpBtn.addActionListener(e -> openDoctorSignUp());
         getRootPane().setDefaultButton(loginBtn);
     }
 
@@ -176,6 +193,15 @@ public class LoginWindow extends JFrame {
         }
     }
 
+    private void openDoctorSignUp() {
+        try {
+            String doctorSignupPath = "file:///" + System.getProperty("user.dir").replace("\\", "/") + "/doctor_signup.html";
+            java.awt.Desktop.getDesktop().browse(new java.net.URI(doctorSignupPath));
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Unable to open Doctor Sign-Up page. Please check if doctor_signup.html exists.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
     public static void seedRooms() {
         if (!DataStore.rooms.isEmpty()) return;
         for (int i=0; i<10; i++) {
@@ -187,6 +213,14 @@ public class LoginWindow extends JFrame {
     private void stylePrimary(JButton b, Color bg, Color fg) {
         b.setBackground(bg);
         b.setForeground(fg);
+        b.setFocusPainted(false);
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+    }
+
+    private void styleSecondary(JButton b, Color bg, Color fg) {
+        b.setBackground(bg);
+        b.setForeground(fg);
+        b.setBorder(BorderFactory.createLineBorder(fg, 2));
         b.setFocusPainted(false);
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
     }

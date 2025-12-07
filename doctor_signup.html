@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Sign-Up | HPMS</title>
+    <link rel="stylesheet" href="signup_style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="signup-wrapper">
+            <!-- Left Side - Branding -->
+            <div class="branding-section">
+                <div class="branding-content">
+                    <h1>HPMS</h1>
+                    <p class="tagline">Healthcare Professional Management System</p>
+                    <p class="description">Join our network of healthcare professionals and provide better patient care</p>
+                    <ul class="benefits">
+                        <li>✓ Access to patient records</li>
+                        <li>✓ Schedule management</li>
+                        <li>✓ Prescription management</li>
+                        <li>✓ Secure platform</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Right Side - Sign-Up Form -->
+            <div class="form-section">
+                <div class="form-container">
+                    <h2>Doctor Sign-Up</h2>
+                    <p class="form-subtitle">Create your professional account</p>
+
+                    <form id="doctorSignupForm" novalidate>
+                        <!-- Full Name -->
+                        <div class="form-group">
+                            <label for="fullName">Full Name *</label>
+                            <input 
+                                type="text" 
+                                id="fullName" 
+                                name="fullName" 
+                                placeholder="Enter your full name"
+                                required
+                            >
+                            <span class="error-message" id="fullNameError"></span>
+                        </div>
+
+                        <!-- Email Address -->
+                        <div class="form-group">
+                            <label for="email">Email Address *</label>
+                            <input 
+                                type="email" 
+                                id="email" 
+                                name="email" 
+                                placeholder="your.email@example.com"
+                                required
+                            >
+                            <span class="error-message" id="emailError"></span>
+                        </div>
+
+                        <!-- Phone Number -->
+                        <div class="form-group">
+                            <label for="phone">Phone Number *</label>
+                            <input 
+                                type="tel" 
+                                id="phone" 
+                                name="phone" 
+                                placeholder="+1 (555) 123-4567"
+                                required
+                            >
+                            <span class="error-message" id="phoneError"></span>
+                        </div>
+
+                        <!-- Medical License Number -->
+                        <div class="form-group">
+                            <label for="licenseNumber">Medical License Number *</label>
+                            <input 
+                                type="text" 
+                                id="licenseNumber" 
+                                name="licenseNumber" 
+                                placeholder="e.g., MD123456"
+                                required
+                            >
+                            <span class="error-message" id="licenseNumberError"></span>
+                        </div>
+
+                        <!-- Specialization -->
+                        <div class="form-group">
+                            <label for="specialization">Specialization *</label>
+                            <select id="specialization" name="specialization" required>
+                                <option value="">-- Select Specialization --</option>
+                                <option value="General Practitioner">General Practitioner</option>
+                                <option value="Cardiologist">Cardiologist</option>
+                                <option value="Dermatologist">Dermatologist</option>
+                                <option value="Neurologist">Neurologist</option>
+                                <option value="Orthopedic">Orthopedic Surgeon</option>
+                                <option value="Pediatrician">Pediatrician</option>
+                                <option value="Psychiatrist">Psychiatrist</option>
+                                <option value="Surgeon">General Surgeon</option>
+                                <option value="ENT">ENT Specialist</option>
+                                <option value="Ophthalmologist">Ophthalmologist</option>
+                                <option value="Radiologist">Radiologist</option>
+                                <option value="Anesthesiologist">Anesthesiologist</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            <span class="error-message" id="specializationError"></span>
+                        </div>
+
+                        <!-- Password -->
+                        <div class="form-group">
+                            <label for="password">Password *</label>
+                            <div class="password-input-wrapper">
+                                <input 
+                                    type="password" 
+                                    id="password" 
+                                    name="password" 
+                                    placeholder="At least 8 characters"
+                                    required
+                                >
+                                <button type="button" class="toggle-password" id="togglePassword">
+                                    <span class="eye-icon">👁️</span>
+                                </button>
+                            </div>
+                            <span class="error-message" id="passwordError"></span>
+                            <div class="password-requirements">
+                                <p>Password must contain:</p>
+                                <ul>
+                                    <li id="req-length">✗ At least 8 characters</li>
+                                    <li id="req-uppercase">✗ One uppercase letter</li>
+                                    <li id="req-lowercase">✗ One lowercase letter</li>
+                                    <li id="req-number">✗ One number</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Confirm Password -->
+                        <div class="form-group">
+                            <label for="confirmPassword">Confirm Password *</label>
+                            <div class="password-input-wrapper">
+                                <input 
+                                    type="password" 
+                                    id="confirmPassword" 
+                                    name="confirmPassword" 
+                                    placeholder="Re-enter your password"
+                                    required
+                                >
+                                <button type="button" class="toggle-password" id="toggleConfirmPassword">
+                                    <span class="eye-icon">👁️</span>
+                                </button>
+                            </div>
+                            <span class="error-message" id="confirmPasswordError"></span>
+                        </div>
+
+                        <!-- Terms & Conditions -->
+                        <div class="form-group checkbox">
+                            <input 
+                                type="checkbox" 
+                                id="terms" 
+                                name="terms" 
+                                required
+                            >
+                            <label for="terms">I agree to the Terms & Conditions and Privacy Policy *</label>
+                            <span class="error-message" id="termsError"></span>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button type="submit" class="btn-submit">Create Account</button>
+
+                        <!-- Login Link -->
+                        <p class="login-link">
+                            Already have an account? <a href="doctor_login.html">Sign In</a>
+                        </p>
+                    </form>
+
+                    <!-- Success Message -->
+                    <div id="successMessage" class="success-message" style="display: none;">
+                        <p>✓ Account created successfully!</p>
+                        <p>Redirecting to login page...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="signup_script.js"></script>
+</body>
+</html>
