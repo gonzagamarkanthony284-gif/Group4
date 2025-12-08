@@ -60,6 +60,15 @@ public class PatientStatusService {
         return DataStore.patientStatus.getOrDefault(patientId, PatientStatus.OUTPATIENT);
     }
 
+    /**
+     * Get the category/status of a patient for UI grouping purposes.
+     * Returns the patient's primary status from the PatientStatus registry.
+     * Defaults to OUTPATIENT if no explicit status is set.
+     */
+    public static PatientStatus getPatientCategory(String patientId) {
+        return getStatus(patientId);
+    }
+
     public static List<StatusHistoryEntry> history(String patientId) {
         return DataStore.statusHistory.getOrDefault(patientId, new ArrayList<>());
     }

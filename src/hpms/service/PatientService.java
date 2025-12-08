@@ -163,10 +163,24 @@ public class PatientService {
         // Update birthday and patient type
         if (birthday != null && !birthday.trim().isEmpty())
             p.birthday = birthday.trim();
+
+        // CRITICAL RULE: If patient is marked as OUTPATIENT, that status is PERMANENT
+        // and CANNOT be changed
         if (patientType != null && !patientType.trim().isEmpty()) {
             String ptType = patientType.trim().toUpperCase();
-            if (ptType.equals("INPATIENT") || ptType.equals("OUTPATIENT"))
-                p.patientType = ptType;
+            if (ptType.equals("INPATIENT") || ptType.equals("OUTPATIENT")) {
+                // If patient is being set to OUTPATIENT for the first time, mark it permanent
+                if ("OUTPATIENT".equals(ptType) && !p.isOutpatientPermanent) {
+                    p.patientType = ptType;
+                    p.isOutpatientPermanent = true; // Once OUTPATIENT, always OUTPATIENT
+                } else if (p.isOutpatientPermanent) {
+                    // If already marked as permanent OUTPATIENT, DO NOT allow any changes
+                    // Silently ignore the change attempt - patient remains OUTPATIENT
+                } else {
+                    // Patient is not permanent outpatient yet, can change freely
+                    p.patientType = ptType;
+                }
+            }
         }
         if (p == null) {
             out.clear();
@@ -497,6 +511,72 @@ public class PatientService {
             return out;
         }
         out.add(p.id + " " + p.name + " " + p.age + " " + p.gender);
+        return out;
+    }
+
+    /**
+     * Remove a patient from a doctor's assignment.
+     * This deletes all appointments between the doctor and patient,
+     * and clears the patient's insurance information.
+     */
+    public static List<String> removePatientFromDoctor(String patientId, String doctorId) {
+        List<String> out = new ArrayList<>();
+
+        // Validate inputs
+        if (Validators.empty(patientId) || Validators.empty(doctorId)) {
+            out.add("Error: Missing patient or doctor ID");
+            return out;
+        }
+
+        Patient p = DataStore.patients.get(patientId);
+        if (p == null) {
+            out.add("Error: Patient not found");
+            return out;
+        }
+
+        hpms.model.Staff doctor = DataStore.staff.get(doctorId);
+        if (doctor == null) {
+            out.add("Error: Doctor not found");
+            return out;
+        }
+
+        // Remove all appointments between doctor and patient
+        java.util.List<String> appointmentsToRemove = new java.util.ArrayList<>();
+        for (hpms.model.Appointment appt : DataStore.appointments.values()) {
+            if (appt.patientId.equals(patientId) && appt.staffId.equals(doctorId)) {
+                appointmentsToRemove.add(appt.id);
+            }
+        }
+
+        // Delete the appointments
+        int appointmentsDeleted = 0;
+        for (String apptId : appointmentsToRemove) {
+            DataStore.appointments.remove(apptId);
+            appointmentsDeleted++;
+        }
+
+        // Clear insurance information
+        p.insuranceProvider = "";
+        p.insuranceId = "";
+        p.insuranceGroup = "";
+        p.policyHolderName = "";
+        p.policyHolderDob = "";
+        p.policyRelationship = "";
+        p.secondaryInsurance = "";
+
+        // Log the action
+        LogManager.log("remove_patient_from_doctor " + patientId + " from " + doctorId);
+
+        // Save to backup
+        try {
+            BackupUtil.saveToDefault();
+        } catch (Exception ex) {
+            out.add("Warning: Changes saved but backup failed");
+            return out;
+        }
+
+        out.add("Patient successfully removed from doctor assignment. " + appointmentsDeleted
+                + " appointment(s) deleted. Insurance information cleared.");
         return out;
     }
 }

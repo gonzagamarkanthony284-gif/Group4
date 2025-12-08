@@ -20,6 +20,8 @@ public class StaffPanel extends JPanel {
     private JTable doctorTable, nurseTable, cashierTable;
     private JLabel statsLabel;
     private DoctorFilterPanel doctorFilterPanel;
+    private JCheckBox showDeactivatedCheck;
+    private JButton deactivateBtn;
 
     public StaffPanel() {
         setLayout(new BorderLayout());
@@ -81,6 +83,9 @@ public class StaffPanel extends JPanel {
         if ("DOCTOR".equals(role)) {
             columnNames = new String[] { "Staff ID", "Name", "Department", "Expertise", "Details", "Status",
                     "Joined Date" };
+        } else if ("NURSE".equals(role)) {
+            // Nurses do not have departments
+            columnNames = new String[] { "Staff ID", "Name", "Details", "Status", "Joined Date" };
         } else {
             columnNames = new String[] { "Staff ID", "Name", "Department", "Details", "Status", "Joined Date" };
         }
@@ -105,16 +110,22 @@ public class StaffPanel extends JPanel {
         table.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         table.getColumnModel().getColumn(0).setPreferredWidth(80);
         table.getColumnModel().getColumn(1).setPreferredWidth(140);
-        table.getColumnModel().getColumn(2).setPreferredWidth(120);
 
-        // Column 3 (Expertise) only for doctors
         if ("DOCTOR".equals(role)) {
+            // Doctors: ID, Name, Department, Expertise, Details, Status, Joined Date
+            table.getColumnModel().getColumn(2).setPreferredWidth(120);
             table.getColumnModel().getColumn(3).setPreferredWidth(120);
             table.getColumnModel().getColumn(4).setPreferredWidth(130);
             table.getColumnModel().getColumn(5).setPreferredWidth(80);
             table.getColumnModel().getColumn(6).setPreferredWidth(120);
+        } else if ("NURSE".equals(role)) {
+            // Nurses: ID, Name, Details, Status, Joined Date (no Department)
+            table.getColumnModel().getColumn(2).setPreferredWidth(180);
+            table.getColumnModel().getColumn(3).setPreferredWidth(80);
+            table.getColumnModel().getColumn(4).setPreferredWidth(120);
         } else {
-            // For non-doctor roles, Details is column 3
+            // Cashiers/Others: ID, Name, Department, Details, Status, Joined Date
+            table.getColumnModel().getColumn(2).setPreferredWidth(120);
             table.getColumnModel().getColumn(3).setPreferredWidth(150);
             table.getColumnModel().getColumn(4).setPreferredWidth(80);
             table.getColumnModel().getColumn(5).setPreferredWidth(120);
@@ -123,10 +134,19 @@ public class StaffPanel extends JPanel {
         // Store table reference
         if ("DOCTOR".equals(role)) {
             doctorTable = table;
+            table.getSelectionModel().addListSelectionListener(evt -> {
+                updateDeactivateButton();
+            });
         } else if ("NURSE".equals(role)) {
             nurseTable = table;
+            table.getSelectionModel().addListSelectionListener(evt -> {
+                updateDeactivateButton();
+            });
         } else if ("CASHIER".equals(role)) {
             cashierTable = table;
+            table.getSelectionModel().addListSelectionListener(evt -> {
+                updateDeactivateButton();
+            });
         }
 
         JScrollPane scrollPane = new JScrollPane(table);
@@ -144,7 +164,15 @@ public class StaffPanel extends JPanel {
         statsLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
         statsLabel.setForeground(Theme.PRIMARY);
 
+        showDeactivatedCheck = new JCheckBox("Show Deactivated");
+        showDeactivatedCheck.setOpaque(false);
+        showDeactivatedCheck.addActionListener(e -> refresh());
+        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        right.setOpaque(false);
+        right.add(showDeactivatedCheck);
+
         panel.add(statsLabel, BorderLayout.WEST);
+        panel.add(right, BorderLayout.EAST);
         return panel;
     }
 
@@ -159,8 +187,8 @@ public class StaffPanel extends JPanel {
         JButton editBtn = new JButton("Edit");
         styleButton(editBtn, new Color(41, 128, 185));
 
-        JButton deleteBtn = new JButton("Delete");
-        styleButton(deleteBtn, new Color(192, 57, 43));
+        deactivateBtn = new JButton("Deactivate");
+        styleButton(deactivateBtn, new Color(192, 57, 43));
 
         JButton regUserBtn = new JButton("Register User");
         styleButton(regUserBtn, new Color(155, 89, 182));
@@ -170,13 +198,13 @@ public class StaffPanel extends JPanel {
 
         addBtn.addActionListener(e -> addStaffDialog());
         editBtn.addActionListener(e -> editStaff());
-        deleteBtn.addActionListener(e -> deleteStaff());
+        deactivateBtn.addActionListener(e -> deleteStaff());
         regUserBtn.addActionListener(e -> registerUserDialog());
         viewBtn.addActionListener(e -> viewStaffDetails());
 
         panel.add(addBtn);
         panel.add(editBtn);
-        panel.add(deleteBtn);
+        panel.add(deactivateBtn);
 
         if (AuthService.current != null && AuthService.current.role == UserRole.ADMIN) {
             panel.add(regUserBtn);
@@ -267,24 +295,37 @@ public class StaffPanel extends JPanel {
         c.gridx = 0;
         c.gridy = 1;
         c.weightx = 0.3;
-        panel.add(new JLabel("Department"), c);
-        c.gridx = 1;
-        c.weightx = 0.7;
-        JComboBox<String> deptCombo = new JComboBox<>(DataStore.departments.toArray(new String[0]));
-        deptCombo.setSelectedItem(staff.department);
-        panel.add(deptCombo, c);
+        @SuppressWarnings("unchecked")
+        final JComboBox<String>[] deptComboHolder = new JComboBox[1];
+        deptComboHolder[0] = null;
+
+        // Department field only for non-nurse roles
+        if (staff.role != StaffRole.NURSE) {
+            panel.add(new JLabel("Department"), c);
+            c.gridx = 1;
+            c.weightx = 0.7;
+            deptComboHolder[0] = new JComboBox<>(DataStore.departments.toArray(new String[0]));
+            deptComboHolder[0].setSelectedItem(staff.department);
+            panel.add(deptComboHolder[0], c);
+            c.gridy++;
+        }
 
         c.gridx = 0;
-        c.gridy = 2;
         c.weightx = 0.3;
         panel.add(new JLabel("Specialization"), c);
         c.gridx = 1;
         c.weightx = 0.7;
         JTextField specField = new JTextField(staff.specialty == null ? "" : staff.specialty);
+        // Specialization is permanent for doctors and cannot be edited
+        if (staff.role == StaffRole.DOCTOR) {
+            specField.setEditable(false);
+            specField.setBackground(new Color(240, 240, 240));
+            specField.setToolTipText("Doctor specialization cannot be changed after account creation");
+        }
         panel.add(specField, c);
 
         c.gridx = 0;
-        c.gridy = 3;
+        c.gridy++;
         c.weightx = 0.3;
         panel.add(new JLabel("Phone"), c);
         c.gridx = 1;
@@ -293,7 +334,7 @@ public class StaffPanel extends JPanel {
         panel.add(phoneField, c);
 
         c.gridx = 0;
-        c.gridy = 4;
+        c.gridy++;
         c.weightx = 0.3;
         panel.add(new JLabel("Email"), c);
         c.gridx = 1;
@@ -302,7 +343,7 @@ public class StaffPanel extends JPanel {
         panel.add(emailField, c);
 
         c.gridx = 0;
-        c.gridy = 5;
+        c.gridy++;
         c.weightx = 0.3;
         panel.add(new JLabel("License #"), c);
         c.gridx = 1;
@@ -311,7 +352,7 @@ public class StaffPanel extends JPanel {
         panel.add(licenseField, c);
 
         c.gridx = 0;
-        c.gridy = 6;
+        c.gridy++;
         c.weightx = 0.3;
         panel.add(new JLabel("Qualifications"), c);
         c.gridx = 1;
@@ -371,8 +412,15 @@ public class StaffPanel extends JPanel {
             }
 
             staff.name = nm;
-            staff.department = deptCombo.getSelectedItem().toString();
-            staff.specialty = specField.getText().trim();
+            // Only update department for non-nurse roles
+            if (staff.role != StaffRole.NURSE && deptComboHolder[0] != null) {
+                staff.department = deptComboHolder[0].getSelectedItem().toString();
+            }
+            // Only update specialty for non-doctor roles (doctor specialization is
+            // permanent)
+            if (staff.role != StaffRole.DOCTOR) {
+                staff.specialty = specField.getText().trim();
+            }
             staff.phone = phoneField.getText().trim();
             staff.email = emailField.getText().trim();
             staff.licenseNumber = licenseField.getText().trim();
@@ -398,24 +446,41 @@ public class StaffPanel extends JPanel {
 
         int row = table.getSelectedRow();
         if (row < 0) {
-            JOptionPane.showMessageDialog(this, "Please select a staff member to delete", "Selection Required",
+            JOptionPane.showMessageDialog(this, "Please select a staff member", "Selection Required",
                     JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         DefaultTableModel model = (DefaultTableModel) table.getModel();
         String staffId = model.getValueAt(row, 0).toString();
-        int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete this staff member?",
-                "Confirm Deletion", JOptionPane.YES_NO_OPTION);
+        Staff staff = DataStore.staff.get(staffId);
+        if (staff == null) {
+            JOptionPane.showMessageDialog(this, "Staff not found", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
-        if (confirm == JOptionPane.YES_OPTION) {
-            java.util.List<String> result = StaffService.delete(staffId);
-            if (result.get(0).startsWith("Staff deleted")) {
-                JOptionPane.showMessageDialog(this, "Staff member deleted successfully", "Success",
-                        JOptionPane.INFORMATION_MESSAGE);
+        if (staff.isActive) {
+            int confirm = JOptionPane.showConfirmDialog(this,
+                    "Deactivate this account?\nThe record will be preserved and hidden from active lists.",
+                    "Confirm Deactivation", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+            if (confirm == JOptionPane.YES_OPTION) {
+                java.util.List<String> result = StaffService.deactivate(staffId);
+                JOptionPane.showMessageDialog(this, result.get(0), result.get(0).startsWith("Error") ? "Error"
+                        : "Success",
+                        result.get(0).startsWith("Error") ? JOptionPane.ERROR_MESSAGE
+                                : JOptionPane.INFORMATION_MESSAGE);
                 refresh();
-            } else {
-                JOptionPane.showMessageDialog(this, result.get(0), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        } else {
+            int confirm = JOptionPane.showConfirmDialog(this, "Reactivate this account?", "Confirm Reactivation",
+                    JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                java.util.List<String> result = StaffService.reactivate(staffId);
+                JOptionPane.showMessageDialog(this, result.get(0), result.get(0).startsWith("Error") ? "Error"
+                        : "Success",
+                        result.get(0).startsWith("Error") ? JOptionPane.ERROR_MESSAGE
+                                : JOptionPane.INFORMATION_MESSAGE);
+                refresh();
             }
         }
     }
@@ -524,18 +589,36 @@ public class StaffPanel extends JPanel {
             detailPanel = createDoctorDetailPanel(staff);
         } else {
             // Standard detail view for other staff
-            String details = String.format(
-                    "Staff ID: %s\n\n" +
-                            "Name: %s\n" +
-                            "Role: %s\n" +
-                            "Department: %s\n" +
-                            "Phone: %s\n" +
-                            "Email: %s\n" +
-                            "License #: %s\n" +
-                            "Status: Active",
-                    staff.id, staff.name, staff.role, staff.department,
-                    staff.phone == null ? "" : staff.phone,
-                    staff.email == null ? "" : staff.email, staff.licenseNumber == null ? "" : staff.licenseNumber);
+            String details;
+            if (staff.role == StaffRole.NURSE) {
+                // Nurses do not have departments
+                details = String.format(
+                        "Staff ID: %s\n\n" +
+                                "Name: %s\n" +
+                                "Role: %s\n" +
+                                "Phone: %s\n" +
+                                "Email: %s\n" +
+                                "License #: %s\n" +
+                                "Status: Active",
+                        staff.id, staff.name, staff.role,
+                        staff.phone == null ? "" : staff.phone,
+                        staff.email == null ? "" : staff.email,
+                        staff.licenseNumber == null ? "" : staff.licenseNumber);
+            } else {
+                details = String.format(
+                        "Staff ID: %s\n\n" +
+                                "Name: %s\n" +
+                                "Role: %s\n" +
+                                "Department: %s\n" +
+                                "Phone: %s\n" +
+                                "Email: %s\n" +
+                                "License #: %s\n" +
+                                "Status: Active",
+                        staff.id, staff.name, staff.role, staff.department,
+                        staff.phone == null ? "" : staff.phone,
+                        staff.email == null ? "" : staff.email,
+                        staff.licenseNumber == null ? "" : staff.licenseNumber);
+            }
 
             detailPanel.setLayout(new BorderLayout());
             detailPanel.add(new JLabel(details), BorderLayout.CENTER);
@@ -649,6 +732,11 @@ public class StaffPanel extends JPanel {
     }
 
     public void refresh() {
+        // Check and clear expired clinic schedules before displaying staff
+        StaffService.checkAndClearExpiredSchedules();
+
+        boolean showDeactivated = showDeactivatedCheck != null && showDeactivatedCheck.isSelected();
+
         doctorModel.setRowCount(0);
         nurseModel.setRowCount(0);
         cashierModel.setRowCount(0);
@@ -656,44 +744,87 @@ public class StaffPanel extends JPanel {
         int doctorCount = 0;
         int nurseCount = 0;
         int cashierCount = 0;
+        int deactivatedCount = 0;
 
         for (Staff staff : DataStore.staff.values()) {
+            // Skip deactivated unless checkbox is checked
+            if (!staff.isActive) {
+                deactivatedCount++;
+                if (!showDeactivated)
+                    continue;
+            }
+
             String details = getStaffDetails(staff);
 
             if (staff.role == StaffRole.DOCTOR) {
                 // Doctors have 7 columns: ID, Name, Department, Expertise, Details, Status,
                 // Joined Date
+                String status = staff.isActive ? "Active" : "Deactivated";
+                if (staff.isActive && staff.isScheduleExpired()) {
+                    status = "Schedule Expired";
+                } else if (staff.isActive && staff.scheduleEndDate != null) {
+                    // Check if schedule expires within 7 days
+                    long daysUntilExpiry = java.time.temporal.ChronoUnit.DAYS.between(
+                            java.time.LocalDateTime.now(),
+                            staff.scheduleEndDate);
+                    if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
+                        status = "Expiring Soon (" + daysUntilExpiry + "d)";
+                    }
+                }
                 Object[] row = new Object[] {
                         staff.id,
                         staff.name,
                         staff.department,
                         staff.specialty == null ? "" : staff.specialty, // Expertise column
                         details,
-                        "Active",
+                        status,
                         staff.createdAt == null ? "" : staff.createdAt.toLocalDate().toString()
                 };
                 doctorModel.addRow(row);
                 doctorCount++;
             } else if (staff.role == StaffRole.NURSE) {
-                // Nurses have 6 columns: ID, Name, Department, Details, Status, Joined Date
+                // Nurses have 5 columns: ID, Name, Details, Status, Joined Date (no Department)
+                String status = staff.isActive ? "Active" : "Deactivated";
+                if (staff.isActive && staff.isScheduleExpired()) {
+                    status = "Schedule Expired";
+                } else if (staff.isActive && staff.scheduleEndDate != null) {
+                    // Check if schedule expires within 7 days
+                    long daysUntilExpiry = java.time.temporal.ChronoUnit.DAYS.between(
+                            java.time.LocalDateTime.now(),
+                            staff.scheduleEndDate);
+                    if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
+                        status = "Expiring Soon (" + daysUntilExpiry + "d)";
+                    }
+                }
                 Object[] row = new Object[] {
                         staff.id,
                         staff.name,
-                        staff.department,
                         details,
-                        "Active",
+                        status,
                         staff.createdAt == null ? "" : staff.createdAt.toLocalDate().toString()
                 };
                 nurseModel.addRow(row);
                 nurseCount++;
             } else if (staff.role == StaffRole.CASHIER) {
                 // Cashiers have 6 columns: ID, Name, Department, Details, Status, Joined Date
+                String status = staff.isActive ? "Active" : "Deactivated";
+                if (staff.isActive && staff.isScheduleExpired()) {
+                    status = "Schedule Expired";
+                } else if (staff.isActive && staff.scheduleEndDate != null) {
+                    // Check if schedule expires within 7 days
+                    long daysUntilExpiry = java.time.temporal.ChronoUnit.DAYS.between(
+                            java.time.LocalDateTime.now(),
+                            staff.scheduleEndDate);
+                    if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
+                        status = "Expiring Soon (" + daysUntilExpiry + "d)";
+                    }
+                }
                 Object[] row = new Object[] {
                         staff.id,
                         staff.name,
                         staff.department,
                         details,
-                        "Active",
+                        status,
                         staff.createdAt == null ? "" : staff.createdAt.toLocalDate().toString()
                 };
                 cashierModel.addRow(row);
@@ -701,9 +832,32 @@ public class StaffPanel extends JPanel {
             }
         }
 
-        String stats = String.format("Total Staff: %d | Doctors: %d | Nurses: %d | Cashiers: %d",
-                DataStore.staff.size(), doctorCount, nurseCount, cashierCount);
+        int totalActive = doctorCount + nurseCount + cashierCount;
+        String stats = String.format("Active Staff: %d | Doctors: %d | Nurses: %d | Cashiers: %d",
+                totalActive, doctorCount, nurseCount, cashierCount);
+        if (deactivatedCount > 0 && !showDeactivated)
+            stats += " | Deactivated: " + deactivatedCount + " (hidden)";
         statsLabel.setText(stats);
+
+        // Update button label based on selection
+        updateDeactivateButton();
+    }
+
+    private void updateDeactivateButton() {
+        if (deactivateBtn == null)
+            return;
+        JTable table = getSelectedRoleTable();
+        if (table == null || table.getSelectedRow() < 0) {
+            deactivateBtn.setText("Deactivate");
+            return;
+        }
+        DefaultTableModel model = (DefaultTableModel) table.getModel();
+        String staffId = model.getValueAt(table.getSelectedRow(), 0).toString();
+        Staff staff = DataStore.staff.get(staffId);
+        if (staff != null && !staff.isActive)
+            deactivateBtn.setText("Reactivate");
+        else
+            deactivateBtn.setText("Deactivate");
     }
 
     private String getStaffDetails(Staff staff) {

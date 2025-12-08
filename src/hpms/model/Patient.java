@@ -11,6 +11,7 @@ public class Patient {
     public String contact;
     public String address;
     public String patientType = ""; // INPATIENT or OUTPATIENT - required field
+    public boolean isOutpatientPermanent = false; // Once marked as OUTPATIENT, this flag is set and NEVER changed
     public boolean isComplete = false; // Flag to track if all required fields are filled
     // Patient-provided / administrative fields
     public String allergies = ""; // free text or comma-separated

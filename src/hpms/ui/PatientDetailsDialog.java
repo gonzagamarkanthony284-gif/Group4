@@ -33,6 +33,11 @@ public class PatientDetailsDialog extends JDialog {
         JLabel idLbl = new JLabel("ID: " + p.id);
         idLbl.setFont(new Font("Arial", Font.PLAIN, 12));
         idLbl.setForeground(new Color(90, 90, 90));
+
+        // Doctors should NOT be able to change patient passwords
+        boolean isDoctor = hpms.auth.AuthService.current != null
+                && hpms.auth.AuthService.current.role == UserRole.DOCTOR;
+
         boolean hasPortal = DataStore.users.containsKey(p.id);
         // show last-known plaintext password if available (transient, not persisted)
         String lastPlain = hpms.auth.AuthService.getLastPlaintextForUI(p.id);
@@ -102,10 +107,14 @@ public class PatientDetailsDialog extends JDialog {
         tleft.setOpaque(false);
         tleft.add(title);
         tleft.add(idLbl);
-        tleft.add(Box.createHorizontalStrut(8));
-        tleft.add(pwdLbl);
-        tleft.add(Box.createHorizontalStrut(6));
-        tleft.add(changePwdBtn);
+
+        // Only show password management for non-doctors
+        if (!isDoctor) {
+            tleft.add(Box.createHorizontalStrut(8));
+            tleft.add(pwdLbl);
+            tleft.add(Box.createHorizontalStrut(6));
+            tleft.add(changePwdBtn);
+        }
         JButton closeBtn = new JButton("Close");
         closeBtn.addActionListener(e -> dispose());
         header.add(tleft, BorderLayout.WEST);

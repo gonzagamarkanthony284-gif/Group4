@@ -176,6 +176,8 @@ CREATE TABLE staff (
     years_practice INT,
     years_of_work INT,
     clinic_schedule_str TEXT,
+    schedule_start_date DATETIME,
+    schedule_end_date DATETIME,
     qualifications TEXT,
     certifications TEXT,
     bio TEXT,

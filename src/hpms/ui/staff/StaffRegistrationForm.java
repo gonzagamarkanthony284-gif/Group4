@@ -12,7 +12,6 @@ public class StaffRegistrationForm extends JFrame {
     private JComboBox<String> specCombo, nursingCombo;
     private JTextField subSpec, licenseDoctor, yearsPracticeDoctor, licenseNurse, certsField, yearsExpNurse;
     private JPanel doctorPanel, nursePanel, cashierPanel, adminPanel;
-    private WeekSchedulePanel schedulePanel;
     private JLabel empId;
 
     public StaffRegistrationForm() {
@@ -30,17 +29,16 @@ public class StaffRegistrationForm extends JFrame {
         headerPanel.setBackground(Theme.BACKGROUND);
         headerPanel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.BORDER),
-                BorderFactory.createEmptyBorder(15, 15, 10, 15)
-        ));
+                BorderFactory.createEmptyBorder(15, 15, 10, 15)));
         JLabel titleLabel = new JLabel("Register New Staff Member");
         titleLabel.setFont(new Font("Arial", Font.BOLD, 20));
         titleLabel.setForeground(Theme.FOREGROUND);
         headerPanel.add(titleLabel, BorderLayout.WEST);
-        
+
         // Add action buttons to header right side
         JPanel headerButtonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         headerButtonPanel.setBackground(Theme.BACKGROUND);
-        
+
         JButton cancelBtn = new JButton("Cancel");
         cancelBtn.setFont(new Font("Arial", Font.BOLD, 12));
         cancelBtn.setBackground(new Color(155, 155, 155));
@@ -58,11 +56,11 @@ public class StaffRegistrationForm extends JFrame {
         saveBtn.setFocusPainted(false);
         saveBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         saveBtn.addActionListener(e -> saveStaff());
-        
+
         headerButtonPanel.add(cancelBtn);
         headerButtonPanel.add(saveBtn);
         headerPanel.add(headerButtonPanel, BorderLayout.EAST);
-        
+
         mainPanel.add(headerPanel, BorderLayout.NORTH);
 
         // Scrollable content
@@ -104,8 +102,7 @@ public class StaffRegistrationForm extends JFrame {
         card.setBackground(Color.WHITE);
         card.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(Theme.BORDER, 1),
-                BorderFactory.createEmptyBorder(15, 15, 15, 15)
-        ));
+                BorderFactory.createEmptyBorder(15, 15, 15, 15)));
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(6, 6, 6, 6);
@@ -138,7 +135,10 @@ public class StaffRegistrationForm extends JFrame {
         card.add(new JLabel("Role *"), gbc);
         gbc.gridx = 3;
         gbc.weightx = 0.35;
-        roleCombo = new JComboBox<>(new String[]{"DOCTOR", "NURSE", "CASHIER"});
+        // NOTE: ADMIN role is excluded from this registration form
+        // Admin accounts can ONLY be created through the AdminGUI by existing admins
+        // This ensures proper access control and prevents unauthorized admin creation
+        roleCombo = new JComboBox<>(new String[] { "DOCTOR", "NURSE", "CASHIER" });
         roleCombo.setBackground(Color.WHITE);
         roleCombo.setBorder(BorderFactory.createLineBorder(Theme.BORDER));
         roleCombo.setPreferredSize(new Dimension(180, 28));
@@ -173,7 +173,8 @@ public class StaffRegistrationForm extends JFrame {
         card.add(new JLabel("Department *"), gbc);
         gbc.gridx = 1;
         gbc.weightx = 0.35;
-        deptCombo = new JComboBox<>(new String[]{"Cardiology", "Neurology", "Orthopedics", "Pediatrics", "Oncology", "ER", "Admin", "Nursing", "Billing"});
+        deptCombo = new JComboBox<>(new String[] { "Cardiology", "Neurology", "Orthopedics", "Pediatrics", "Oncology",
+                "ER", "Admin", "Nursing", "Billing" });
         deptCombo.setBackground(Color.WHITE);
         deptCombo.setBorder(BorderFactory.createLineBorder(Theme.BORDER));
         deptCombo.setPreferredSize(new Dimension(200, 28));
@@ -184,7 +185,7 @@ public class StaffRegistrationForm extends JFrame {
         card.add(new JLabel("Status"), gbc);
         gbc.gridx = 3;
         gbc.weightx = 0.35;
-        statusCombo = new JComboBox<>(new String[]{"Active", "On Leave", "Resigned"});
+        statusCombo = new JComboBox<>(new String[] { "Active", "On Leave", "Resigned" });
         statusCombo.setBackground(Color.WHITE);
         statusCombo.setBorder(BorderFactory.createLineBorder(Theme.BORDER));
         statusCombo.setPreferredSize(new Dimension(180, 28));
@@ -212,8 +213,7 @@ public class StaffRegistrationForm extends JFrame {
         card.setBackground(Color.WHITE);
         card.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(Theme.BORDER, 1),
-                BorderFactory.createEmptyBorder(15, 15, 15, 15)
-        ));
+                BorderFactory.createEmptyBorder(15, 15, 15, 15)));
 
         JLabel sectionLabel = new JLabel("Role-Specific Information");
         sectionLabel.setFont(new Font("Arial", Font.BOLD, 14));
@@ -269,18 +269,22 @@ public class StaffRegistrationForm extends JFrame {
                 empId.setText("EMP-" + (System.currentTimeMillis() % 100000));
             }
 
-            // Update department list
-            String[] depts;
-            if ("DOCTOR".equals(role)) {
-                depts = new String[]{"Cardiology", "Neurology", "Orthopedics", "Pediatrics", "Oncology", "ER"};
-            } else if ("NURSE".equals(role)) {
-                depts = new String[]{"Nursing", "ER", "Pediatrics", "Oncology"};
-            } else if ("CASHIER".equals(role)) {
-                depts = new String[]{"Billing", "Admin"};
+            // Update department list - nurses do not have departments
+            if ("NURSE".equals(role)) {
+                deptCombo.setEnabled(false);
+                deptCombo.setModel(new DefaultComboBoxModel<>(new String[] { "N/A" }));
             } else {
-                depts = new String[]{"Admin", "Billing"};
+                deptCombo.setEnabled(true);
+                String[] depts;
+                if ("DOCTOR".equals(role)) {
+                    depts = new String[] { "Cardiology", "Neurology", "Orthopedics", "Pediatrics", "Oncology", "ER" };
+                } else if ("CASHIER".equals(role)) {
+                    depts = new String[] { "Billing", "Admin" };
+                } else {
+                    depts = new String[] { "Admin", "Billing" };
+                }
+                deptCombo.setModel(new DefaultComboBoxModel<>(depts));
             }
-            deptCombo.setModel(new DefaultComboBoxModel<>(depts));
             card.revalidate();
             card.repaint();
         });
@@ -304,7 +308,8 @@ public class StaffRegistrationForm extends JFrame {
         panel.add(new JLabel("Specialization *"), gbc);
         gbc.gridx = 1;
         gbc.weightx = 0.3;
-        specCombo = new JComboBox<>(new String[]{"Cardiology", "Pediatrics", "General Medicine", "Surgery", "Orthopedic", "ENT", "Dermatology", "OB-Gyne"});
+        specCombo = new JComboBox<>(new String[] { "Cardiology", "Pediatrics", "General Medicine", "Surgery",
+                "Orthopedic", "ENT", "Dermatology", "OB-Gyne" });
         specCombo.setBackground(Color.WHITE);
         specCombo.setBorder(BorderFactory.createLineBorder(Theme.BORDER));
         specCombo.setPreferredSize(new Dimension(220, 28));
@@ -342,26 +347,6 @@ public class StaffRegistrationForm extends JFrame {
         licenseDoctor.setPreferredSize(new Dimension(100, 28));
         panel.add(licenseDoctor, gbc);
 
-        // Clinic Schedule
-        gbc.gridx = 0;
-        gbc.gridy++;
-        gbc.gridwidth = 4;
-        gbc.weightx = 1.0;
-        gbc.insets = new Insets(14, 6, 8, 6);
-        JLabel scheduleLabel = new JLabel("Clinic Schedule");
-        scheduleLabel.setFont(new Font("Arial", Font.BOLD, 12));
-        panel.add(scheduleLabel, gbc);
-
-        gbc.gridy++;
-        gbc.insets = new Insets(6, 6, 12, 6);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.weighty = 0;
-        schedulePanel = new WeekSchedulePanel();
-        schedulePanel.setPreferredSize(new Dimension(1100, 280));
-        schedulePanel.setMaximumSize(new Dimension(1100, 280));
-        schedulePanel.setMinimumSize(new Dimension(1100, 280));
-        panel.add(schedulePanel, gbc);
-
         return panel;
     }
 
@@ -381,7 +366,7 @@ public class StaffRegistrationForm extends JFrame {
         panel.add(new JLabel("Nursing Field *"), gbc);
         gbc.gridx = 1;
         gbc.weightx = 0.3;
-        nursingCombo = new JComboBox<>(new String[]{"ER", "ICU", "Ward", "Pediatric", "OB Ward", "General Nursing"});
+        nursingCombo = new JComboBox<>(new String[] { "ER", "ICU", "Ward", "Pediatric", "OB Ward", "General Nursing" });
         nursingCombo.setBackground(Color.WHITE);
         nursingCombo.setBorder(BorderFactory.createLineBorder(Theme.BORDER));
         nursingCombo.setPreferredSize(new Dimension(220, 28));
@@ -458,6 +443,15 @@ public class StaffRegistrationForm extends JFrame {
 
     private void saveStaff() {
         String role = (String) roleCombo.getSelectedItem();
+
+        // Defensive check: ADMIN role should never be allowed in this form
+        if ("ADMIN".equalsIgnoreCase(role)) {
+            JOptionPane.showMessageDialog(this, "Admin accounts cannot be created through this form. " +
+                    "Use the Administration panel to create admin accounts.", "Access Denied",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
         String name = nameField.getText().trim();
         String phone = phoneField.getText().trim();
         String email = emailField.getText().trim();
@@ -473,7 +467,8 @@ public class StaffRegistrationForm extends JFrame {
             return;
         }
         if (!phone.matches("^[0-9+()\\-\\s]{7,25}$")) {
-            JOptionPane.showMessageDialog(this, "Phone format invalid", "Validation Error", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Phone format invalid", "Validation Error",
+                    JOptionPane.WARNING_MESSAGE);
             return;
         }
         if (email.isEmpty()) {
@@ -481,42 +476,44 @@ public class StaffRegistrationForm extends JFrame {
             return;
         }
         if (!email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
-            JOptionPane.showMessageDialog(this, "Email format invalid", "Validation Error", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Email format invalid", "Validation Error",
+                    JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         // Role-specific validation
         if ("DOCTOR".equals(role)) {
             if (specCombo.getSelectedItem() == null) {
-                JOptionPane.showMessageDialog(this, "Specialization is required", "Validation Error", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Specialization is required", "Validation Error",
+                        JOptionPane.WARNING_MESSAGE);
                 return;
             }
             if (licenseDoctor.getText().trim().isEmpty()) {
-                JOptionPane.showMessageDialog(this, "License Number is required", "Validation Error", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "License Number is required", "Validation Error",
+                        JOptionPane.WARNING_MESSAGE);
                 return;
             }
             if (yearsPracticeDoctor.getText().trim().isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Years of Practice is required", "Validation Error", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            String schedErr = schedulePanel.validateSchedule();
-            if (schedErr != null) {
-                JOptionPane.showMessageDialog(this, schedErr, "Schedule Error", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Years of Practice is required", "Validation Error",
+                        JOptionPane.WARNING_MESSAGE);
                 return;
             }
         }
 
         if ("NURSE".equals(role)) {
             if (nursingCombo.getSelectedItem() == null) {
-                JOptionPane.showMessageDialog(this, "Nursing Field is required", "Validation Error", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Nursing Field is required", "Validation Error",
+                        JOptionPane.WARNING_MESSAGE);
                 return;
             }
             if (licenseNurse.getText().trim().isEmpty()) {
-                JOptionPane.showMessageDialog(this, "License Number is required", "Validation Error", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "License Number is required", "Validation Error",
+                        JOptionPane.WARNING_MESSAGE);
                 return;
             }
             if (yearsExpNurse.getText().trim().isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Years Experience is required", "Validation Error", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Years Experience is required", "Validation Error",
+                        JOptionPane.WARNING_MESSAGE);
                 return;
             }
         }
@@ -531,36 +528,37 @@ public class StaffRegistrationForm extends JFrame {
                 email,
                 licenseDoctor != null ? licenseDoctor.getText() : "",
                 "",
-                ""
-        );
-
+                "");
         if (result != null && !result.isEmpty() && result.get(0).toLowerCase().contains("added")) {
             // Extract staff ID from response
             String staffId = result.get(0).replaceAll(".*\\s", ""); // Get the ID from "Staff added SXXX"
-            
+
             // Automatically create a staff account with a generated password
             String generatedPassword = AuthService.generateRandomPasswordForUI();
             java.util.List<String> accountResult = AuthService.register(staffId, generatedPassword, role);
-            
-            if (accountResult != null && !accountResult.isEmpty() && accountResult.get(0).startsWith("User registered")) {
+
+            if (accountResult != null && !accountResult.isEmpty()
+                    && accountResult.get(0).startsWith("User registered")) {
                 AuthService.changePasswordNoOld(staffId, generatedPassword);
-                JOptionPane.showMessageDialog(this, 
-                    "Staff registered successfully!\n\n" +
-                    "Staff ID: " + staffId + "\n" +
-                    "Login Password: " + generatedPassword + "\n\n" +
-                    "Please save this password securely.",
-                    "Registration Success", 
-                    JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(this,
+                        "Staff registered successfully!\n\n" +
+                                "Staff ID: " + staffId + "\n" +
+                                "Login Password: " + generatedPassword + "\n\n" +
+                                "Please save this password securely.",
+                        "Registration Success",
+                        JOptionPane.INFORMATION_MESSAGE);
             } else {
-                JOptionPane.showMessageDialog(this, 
-                    "Staff registered but account creation failed.\n" +
-                    "Staff ID: " + staffId,
-                    "Partial Success", 
-                    JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this,
+                        "Staff registered but account creation failed.\n" +
+                                "Staff ID: " + staffId,
+                        "Partial Success",
+                        JOptionPane.WARNING_MESSAGE);
             }
             dispose();
         } else {
-            JOptionPane.showMessageDialog(this, result != null && !result.isEmpty() ? result.get(0) : "Registration failed", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                    result != null && !result.isEmpty() ? result.get(0) : "Registration failed", "Error",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
 

@@ -1,6 +1,8 @@
 package hpms.ui.panels;
 
 import hpms.auth.User;
+import hpms.auth.AuthService;
+import hpms.model.UserRole;
 import hpms.util.*;
 import hpms.ui.components.SectionHeader;
 import hpms.ui.components.Theme;
@@ -17,6 +19,17 @@ public class AdministrationPanel extends JPanel {
     public AdministrationPanel() {
         setLayout(new BorderLayout());
         setBackground(Theme.BG);
+
+        // Security check: Only admins can access administration panel
+        if (AuthService.current == null || AuthService.current.role != UserRole.ADMIN) {
+            JLabel accessDeniedLabel = new JLabel("Access Denied: Administration panel is for admins only");
+            accessDeniedLabel.setFont(new Font("Arial", Font.BOLD, 14));
+            accessDeniedLabel.setForeground(new Color(244, 67, 54));
+            accessDeniedLabel.setHorizontalAlignment(SwingConstants.CENTER);
+            add(accessDeniedLabel, BorderLayout.CENTER);
+            return;
+        }
+
         add(SectionHeader.info("Administration", "User management, backups, and system settings"), BorderLayout.NORTH);
 
         // Tab panel
@@ -56,9 +69,10 @@ public class AdministrationPanel extends JPanel {
 
         // User table
         userModel = new DefaultTableModel(
-            new String[]{"User ID", "Username", "Role", "Status"}, 0
-        ) {
-            public boolean isCellEditable(int r, int c) { return false; }
+                new String[] { "User ID", "Username", "Role", "Status" }, 0) {
+            public boolean isCellEditable(int r, int c) {
+                return false;
+            }
         };
 
         JTable userTable = new JTable(userModel);
@@ -83,12 +97,15 @@ public class AdministrationPanel extends JPanel {
         deleteBtn.addActionListener(e -> {
             int row = userTable.getSelectedRow();
             if (row < 0) {
-                JOptionPane.showMessageDialog(this, "Select a user to delete", "Selection Required", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Select a user to delete", "Selection Required",
+                        JOptionPane.WARNING_MESSAGE);
                 return;
             }
-            int confirm = JOptionPane.showConfirmDialog(this, "Delete this user?", "Confirm", JOptionPane.YES_NO_OPTION);
+            int confirm = JOptionPane.showConfirmDialog(this, "Delete this user?", "Confirm",
+                    JOptionPane.YES_NO_OPTION);
             if (confirm == JOptionPane.YES_OPTION) {
-                JOptionPane.showMessageDialog(this, "User deleted successfully", "Success", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(this, "User deleted successfully", "Success",
+                        JOptionPane.INFORMATION_MESSAGE);
                 refresh();
             }
         });
@@ -118,10 +135,10 @@ public class AdministrationPanel extends JPanel {
         JTextArea infoText = new JTextArea();
         infoText.setEditable(false);
         infoText.setText("BACKUP & RESTORE SYSTEM\n\n" +
-            "Backup: Export all system data to JSON file\n" +
-            "Restore: Import previously backed-up data\n" +
-            "Location: System-managed backups folder\n\n" +
-            "Regular backups are recommended for data integrity.");
+                "Backup: Export all system data to JSON file\n" +
+                "Restore: Import previously backed-up data\n" +
+                "Location: System-managed backups folder\n\n" +
+                "Regular backups are recommended for data integrity.");
         infoText.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         infoText.setBorder(new EmptyBorder(12, 12, 12, 12));
         infoText.setBackground(new Color(245, 247, 250));
@@ -144,9 +161,11 @@ public class AdministrationPanel extends JPanel {
             jsonArea.setLineWrap(true);
             jsonArea.setWrapStyleWord(true);
             JScrollPane scrollPane = new JScrollPane(jsonArea);
-            int result = JOptionPane.showConfirmDialog(this, scrollPane, "Backup JSON - Save this data", JOptionPane.OK_CANCEL_OPTION);
+            int result = JOptionPane.showConfirmDialog(this, scrollPane, "Backup JSON - Save this data",
+                    JOptionPane.OK_CANCEL_OPTION);
             if (result == JOptionPane.OK_OPTION) {
-                JOptionPane.showMessageDialog(this, "Backup data displayed above. Copy to save file.", "Success", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Backup data displayed above. Copy to save file.", "Success",
+                        JOptionPane.INFORMATION_MESSAGE);
             }
         });
 
@@ -157,14 +176,16 @@ public class AdministrationPanel extends JPanel {
             String json = JOptionPane.showInputDialog(this, "Paste backup JSON data:", "");
             if (json != null && !json.trim().isEmpty()) {
                 int confirm = JOptionPane.showConfirmDialog(this,
-                    "This will overwrite all existing data. Continue?",
-                    "Confirm Restore", JOptionPane.YES_NO_OPTION);
+                        "This will overwrite all existing data. Continue?",
+                        "Confirm Restore", JOptionPane.YES_NO_OPTION);
                 if (confirm == JOptionPane.YES_OPTION) {
                     try {
                         BackupUtil.fromJson(json);
-                        JOptionPane.showMessageDialog(this, "Data restored successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                        JOptionPane.showMessageDialog(this, "Data restored successfully!", "Success",
+                                JOptionPane.INFORMATION_MESSAGE);
                     } catch (Exception ex) {
-                        JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                        JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage(), "Error",
+                                JOptionPane.ERROR_MESSAGE);
                     }
                 }
             }
@@ -192,37 +213,61 @@ public class AdministrationPanel extends JPanel {
         c.anchor = GridBagConstraints.WEST;
 
         // Hospital Name
-        c.gridx = 0; c.gridy = 0; c.weightx = 0;
+        c.gridx = 0;
+        c.gridy = 0;
+        c.weightx = 0;
         formPanel.add(new JLabel("Hospital Name:"), c);
-        c.gridx = 1; c.weightx = 1; c.fill = GridBagConstraints.HORIZONTAL;
+        c.gridx = 1;
+        c.weightx = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
         JTextField hospitalName = new JTextField("City Hospital", 30);
         formPanel.add(hospitalName, c);
 
         // Address
-        c.gridx = 0; c.gridy = 1; c.weightx = 0; c.fill = GridBagConstraints.NONE;
+        c.gridx = 0;
+        c.gridy = 1;
+        c.weightx = 0;
+        c.fill = GridBagConstraints.NONE;
         formPanel.add(new JLabel("Address:"), c);
-        c.gridx = 1; c.weightx = 1; c.fill = GridBagConstraints.HORIZONTAL;
+        c.gridx = 1;
+        c.weightx = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
         JTextField address = new JTextField("123 Healthcare Ave, Medical City", 30);
         formPanel.add(address, c);
 
         // Phone
-        c.gridx = 0; c.gridy = 2; c.weightx = 0; c.fill = GridBagConstraints.NONE;
+        c.gridx = 0;
+        c.gridy = 2;
+        c.weightx = 0;
+        c.fill = GridBagConstraints.NONE;
         formPanel.add(new JLabel("Phone:"), c);
-        c.gridx = 1; c.weightx = 1; c.fill = GridBagConstraints.HORIZONTAL;
+        c.gridx = 1;
+        c.weightx = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
         JTextField phone = new JTextField("(555) 123-4567", 30);
         formPanel.add(phone, c);
 
         // Email
-        c.gridx = 0; c.gridy = 3; c.weightx = 0; c.fill = GridBagConstraints.NONE;
+        c.gridx = 0;
+        c.gridy = 3;
+        c.weightx = 0;
+        c.fill = GridBagConstraints.NONE;
         formPanel.add(new JLabel("Email:"), c);
-        c.gridx = 1; c.weightx = 1; c.fill = GridBagConstraints.HORIZONTAL;
+        c.gridx = 1;
+        c.weightx = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
         JTextField email = new JTextField("admin@cityhospital.com", 30);
         formPanel.add(email, c);
 
         // Payment Methods
-        c.gridx = 0; c.gridy = 4; c.weightx = 0; c.fill = GridBagConstraints.NONE;
+        c.gridx = 0;
+        c.gridy = 4;
+        c.weightx = 0;
+        c.fill = GridBagConstraints.NONE;
         formPanel.add(new JLabel("Payment Methods:"), c);
-        c.gridx = 1; c.weightx = 1; c.fill = GridBagConstraints.HORIZONTAL;
+        c.gridx = 1;
+        c.weightx = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
 
         JPanel paymentPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 16, 0));
         paymentPanel.setBackground(new Color(245, 247, 250));
@@ -240,9 +285,14 @@ public class AdministrationPanel extends JPanel {
         formPanel.add(paymentPanel, c);
 
         // Test Modes
-        c.gridx = 0; c.gridy = 5; c.weightx = 0; c.fill = GridBagConstraints.NONE;
+        c.gridx = 0;
+        c.gridy = 5;
+        c.weightx = 0;
+        c.fill = GridBagConstraints.NONE;
         formPanel.add(new JLabel("System Mode:"), c);
-        c.gridx = 1; c.weightx = 1; c.fill = GridBagConstraints.HORIZONTAL;
+        c.gridx = 1;
+        c.weightx = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
 
         JRadioButton prodMode = new JRadioButton("Production", true);
         JRadioButton devMode = new JRadioButton("Development");
@@ -266,7 +316,8 @@ public class AdministrationPanel extends JPanel {
         JButton saveBtn = new JButton("Save Settings");
         styleButton(saveBtn, new Color(0, 110, 102));
         saveBtn.addActionListener(e -> {
-            JOptionPane.showMessageDialog(this, "Settings saved successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Settings saved successfully!", "Success",
+                    JOptionPane.INFORMATION_MESSAGE);
         });
 
         savePanel.add(saveBtn);
@@ -286,22 +337,31 @@ public class AdministrationPanel extends JPanel {
         c.insets = new Insets(8, 8, 8, 8);
         c.fill = GridBagConstraints.HORIZONTAL;
 
-        c.gridx = 0; c.gridy = 0; c.weightx = 0.3;
+        c.gridx = 0;
+        c.gridy = 0;
+        c.weightx = 0.3;
         panel.add(new JLabel("Username *"), c);
-        c.gridx = 1; c.weightx = 0.7;
+        c.gridx = 1;
+        c.weightx = 0.7;
         JTextField usernameField = new JTextField();
         panel.add(usernameField, c);
 
-        c.gridx = 0; c.gridy = 1; c.weightx = 0.3;
+        c.gridx = 0;
+        c.gridy = 1;
+        c.weightx = 0.3;
         panel.add(new JLabel("Password *"), c);
-        c.gridx = 1; c.weightx = 0.7;
+        c.gridx = 1;
+        c.weightx = 0.7;
         JPasswordField passwordField = new JPasswordField();
         panel.add(passwordField, c);
 
-        c.gridx = 0; c.gridy = 2; c.weightx = 0.3;
+        c.gridx = 0;
+        c.gridy = 2;
+        c.weightx = 0.3;
         panel.add(new JLabel("Role *"), c);
-        c.gridx = 1; c.weightx = 0.7;
-        JComboBox<String> roleCombo = new JComboBox<>(new String[]{"ADMIN", "DOCTOR", "NURSE", "CASHIER"});
+        c.gridx = 1;
+        c.weightx = 0.7;
+        JComboBox<String> roleCombo = new JComboBox<>(new String[] { "ADMIN", "DOCTOR", "NURSE", "CASHIER" });
         panel.add(roleCombo, c);
 
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
@@ -315,18 +375,19 @@ public class AdministrationPanel extends JPanel {
 
         saveBtn.addActionListener(e -> {
             if (usernameField.getText().trim().isEmpty() || passwordField.getPassword().length == 0) {
-                JOptionPane.showMessageDialog(dialog, "Please fill all required fields", "Validation Error", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Please fill all required fields", "Validation Error",
+                        JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
             java.util.List<String> result = hpms.auth.AuthService.register(
-                usernameField.getText().trim(),
-                new String(passwordField.getPassword()),
-                roleCombo.getSelectedItem().toString()
-            );
+                    usernameField.getText().trim(),
+                    new String(passwordField.getPassword()),
+                    roleCombo.getSelectedItem().toString());
 
             if (result.get(0).startsWith("User registered")) {
-                JOptionPane.showMessageDialog(dialog, "User added successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "User added successfully!", "Success",
+                        JOptionPane.INFORMATION_MESSAGE);
                 dialog.dispose();
                 refresh();
             } else {
@@ -354,11 +415,11 @@ public class AdministrationPanel extends JPanel {
         if (DataStore.users != null) {
             int idx = 0;
             for (User user : DataStore.users.values()) {
-                userModel.addRow(new Object[]{
-                    "U" + (++idx),  // Generate user ID based on index
-                    user.username,
-                    user.role.toString(),
-                    "Active"
+                userModel.addRow(new Object[] {
+                        "U" + (++idx), // Generate user ID based on index
+                        user.username,
+                        user.role.toString(),
+                        "Active"
                 });
             }
             statsLabel.setText("Total Users: " + DataStore.users.size());
@@ -369,9 +430,9 @@ public class AdministrationPanel extends JPanel {
     private void ensureVisibilityRefresh() {
         this.addHierarchyListener(evt -> {
             if ((evt.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) != 0) {
-                if (this.isShowing()) SwingUtilities.invokeLater(this::refresh);
+                if (this.isShowing())
+                    SwingUtilities.invokeLater(this::refresh);
             }
         });
     }
 }
-

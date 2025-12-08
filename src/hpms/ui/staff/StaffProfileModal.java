@@ -22,7 +22,8 @@ public class StaffProfileModal extends JDialog {
     private JLabel staffIdLabel, roleLabel, deptLabel, joinedLabel;
 
     public StaffProfileModal(Window owner, Staff staff) {
-        super((Frame) (owner instanceof Frame ? owner : SwingUtilities.getWindowAncestor((Component) owner)), "Staff Profile - " + staff.id, ModalityType.APPLICATION_MODAL);
+        super((Frame) (owner instanceof Frame ? owner : SwingUtilities.getWindowAncestor((Component) owner)),
+                "Staff Profile - " + staff.id, ModalityType.APPLICATION_MODAL);
         this.staff = staff;
 
         setSize(900, 950);
@@ -56,8 +57,7 @@ public class StaffProfileModal extends JDialog {
         header.setBackground(new Color(245, 250, 255));
         header.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(new Color(200, 220, 240), 2),
-                BorderFactory.createEmptyBorder(16, 16, 16, 16)
-        ));
+                BorderFactory.createEmptyBorder(16, 16, 16, 16)));
 
         // Left side - title and basic info
         JPanel leftPanel = new JPanel();
@@ -97,7 +97,8 @@ public class StaffProfileModal extends JDialog {
         editBtn.setBorder(BorderFactory.createEmptyBorder(8, 16, 8, 16));
         editBtn.setFocusPainted(false);
         editBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        editBtn.addActionListener(e -> new StaffEditForm(SwingUtilities.getWindowAncestor(this), staff).setVisible(true));
+        editBtn.addActionListener(
+                e -> new StaffEditForm(SwingUtilities.getWindowAncestor(this), staff).setVisible(true));
 
         JButton closeBtn = new JButton("Close");
         closeBtn.setFont(new Font("Arial", Font.BOLD, 11));
@@ -188,7 +189,7 @@ public class StaffProfileModal extends JDialog {
         gbc.gridx = 2;
         formPanel.add(createReadOnlyLabel("Status"), gbc);
         gbc.gridx = 3;
-        statusCombo = new JComboBox<>(new String[]{"Active", "On Leave", "Out of Site", "Resigned"});
+        statusCombo = new JComboBox<>(new String[] { "Active", "On Leave", "Out of Site", "Resigned" });
         statusCombo.setSelectedItem(staff.isAvailable ? "Active" : "Inactive");
         statusCombo.setEnabled(false);
         formPanel.add(statusCombo, gbc);
@@ -208,7 +209,8 @@ public class StaffProfileModal extends JDialog {
         gbc.gridx = 2;
         formPanel.add(createReadOnlyLabel("Years Experience"), gbc);
         gbc.gridx = 3;
-        yearsExperienceField = new JTextField(staff.yearsExperience != null ? String.valueOf(staff.yearsExperience) : "");
+        yearsExperienceField = new JTextField(
+                staff.yearsExperience != null ? String.valueOf(staff.yearsExperience) : "");
         yearsExperienceField.setEditable(false);
         yearsExperienceField.setBorder(BorderFactory.createLineBorder(new Color(220, 220, 220)));
         formPanel.add(yearsExperienceField, gbc);
@@ -244,15 +246,15 @@ public class StaffProfileModal extends JDialog {
             row++;
             gbc.gridy = row;
             gbc.gridx = 0;
-            formPanel.add(createReadOnlyLabel("Specialization"), gbc);
+            formPanel.add(createReadOnlyLabel("Specialization (Permanent)"), gbc);
             gbc.gridx = 1;
             specialtyField = new JTextField(staff.specialty != null ? staff.specialty : "");
             specialtyField.setEditable(false);
+            specialtyField.setBackground(new Color(240, 240, 240));
             specialtyField.setBorder(BorderFactory.createLineBorder(new Color(220, 220, 220)));
+            specialtyField.setToolTipText("Doctor specialization is permanent and cannot be changed");
             formPanel.add(specialtyField, gbc);
         }
-
-        
 
         // Joined Date
         row += 2;
@@ -260,7 +262,9 @@ public class StaffProfileModal extends JDialog {
         gbc.gridx = 0;
         formPanel.add(createReadOnlyLabel("Joined Date"), gbc);
         gbc.gridx = 1;
-        String joinedDate = staff.createdAt != null ? staff.createdAt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) : "N/A";
+        String joinedDate = staff.createdAt != null
+                ? staff.createdAt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                : "N/A";
         joinedLabel = new JLabel(joinedDate);
         joinedLabel.setFont(new Font("Arial", Font.PLAIN, 12));
         formPanel.add(joinedLabel, gbc);
@@ -285,8 +289,7 @@ public class StaffProfileModal extends JDialog {
         statusPanel.setBackground(hasAccount ? new Color(230, 250, 235) : new Color(255, 240, 240));
         statusPanel.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(hasAccount ? new Color(100, 180, 120) : new Color(220, 80, 80), 2),
-                BorderFactory.createEmptyBorder(16, 16, 16, 16)
-        ));
+                BorderFactory.createEmptyBorder(16, 16, 16, 16)));
 
         JPanel statusContent = new JPanel();
         statusContent.setLayout(new BoxLayout(statusContent, BoxLayout.Y_AXIS));
@@ -296,7 +299,8 @@ public class StaffProfileModal extends JDialog {
         statusTitle.setFont(new Font("Arial", Font.BOLD, 18));
         statusTitle.setForeground(hasAccount ? new Color(0, 120, 60) : new Color(180, 0, 0));
 
-        String statusMsg = hasAccount ? "Staff account is active. Password is securely stored." : "No login account has been created for this staff member.";
+        String statusMsg = hasAccount ? "Staff account is active. Password is securely stored."
+                : "No login account has been created for this staff member.";
         JLabel statusDetail = new JLabel(statusMsg);
         statusDetail.setFont(new Font("Arial", Font.PLAIN, 12));
         statusDetail.setForeground(hasAccount ? new Color(60, 120, 80) : new Color(140, 60, 60));
@@ -367,8 +371,7 @@ public class StaffProfileModal extends JDialog {
         schedulePanel.setBackground(Color.WHITE);
         schedulePanel.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(new Color(220, 230, 245), 1),
-                BorderFactory.createEmptyBorder(10, 10, 10, 10)
-        ));
+                BorderFactory.createEmptyBorder(10, 10, 10, 10)));
 
         // Create table-like layout
         JPanel tablePanel = new JPanel(new GridBagLayout());
@@ -409,10 +412,10 @@ public class StaffProfileModal extends JDialog {
         tablePanel.add(endHeader, gbc);
 
         // Data rows
-        String[] daysOfWeek = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
+        String[] daysOfWeek = { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
         for (int i = 0; i < 7; i++) {
-            Staff.ScheduleEntry entry = staff.clinicSchedule.getOrDefault(daysOfWeek[i], 
-                new Staff.ScheduleEntry(false, "08:00", "17:00"));
+            Staff.ScheduleEntry entry = staff.clinicSchedule.getOrDefault(daysOfWeek[i],
+                    new Staff.ScheduleEntry(false, "08:00", "17:00"));
 
             gbc.gridy = i + 1;
 

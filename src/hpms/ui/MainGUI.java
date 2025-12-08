@@ -1,7 +1,6 @@
 package hpms.ui;
 
 import hpms.ui.staff.StaffRegistrationForm;
-import hpms.ui.staff.StaffPanel;
 
 import hpms.auth.AuthService;
 import hpms.model.*;
@@ -84,9 +83,20 @@ public class MainGUI extends JFrame {
                 sidebar.getBorder()));
         UserRole role = AuthService.current == null ? null : AuthService.current.role;
         java.util.List<String> menuList = new java.util.ArrayList<>();
-        if (role == UserRole.ADMIN || role == null) {
-            menuList.addAll(java.util.Arrays.asList("Dashboard", "Patients", "Appointments", "Billing", "Rooms",
-                    "Staff", "Reports", "Administration", "Settings", "Logout"));
+
+        // ADMIN users should NOT use MainGUI - they should use AdminGUI
+        // Prevent admin access to MainGUI
+        if (role == UserRole.ADMIN) {
+            JOptionPane.showMessageDialog(this, "Administrators must use the Administration interface. Redirecting...",
+                    "Access Denied", JOptionPane.WARNING_MESSAGE);
+            try {
+                hpms.util.BackupUtil.saveToDefault();
+            } catch (Exception ex) {
+            }
+            AuthService.logout();
+            new hpms.ui.login.LoginWindow().setVisible(true);
+            dispose();
+            return;
         } else if (role == UserRole.DOCTOR) {
             menuList.addAll(
                     java.util.Arrays.asList("Dashboard", "Patients", "Appointments", "Reports", "Settings", "Logout"));
@@ -96,8 +106,9 @@ public class MainGUI extends JFrame {
         } else if (role == UserRole.CASHIER) {
             menuList.addAll(java.util.Arrays.asList("Dashboard", "Billing", "Reports", "Settings", "Logout"));
         } else {
+            // Default staff menu (no admin, no patient access)
             menuList.addAll(java.util.Arrays.asList("Dashboard", "Patients", "Appointments", "Billing", "Rooms",
-                    "Staff", "Reports", "Settings", "Logout"));
+                    "Reports", "Settings", "Logout"));
         }
         SidebarButton dashboardBtn = null;
         for (String m : menuList) {
@@ -177,14 +188,14 @@ public class MainGUI extends JFrame {
                 content.add("Rooms", new RoomsPanel());
         }
 
-        if (menuList.contains("Staff"))
-            content.add("Staff", new StaffPanel());
+        // NOTE: Staff and Administration panels are NOT added here - they are
+        // admin-only features
+        // Non-admin staff cannot access Staff management or Administration panels
+
         if (role != UserRole.CASHIER) {
             if (menuList.contains("Reports"))
                 content.add("Reports", new ReportsPanel());
         }
-        if (menuList.contains("Administration"))
-            content.add("Administration", new AdministrationPanel());
         if (menuList.contains("Settings"))
             content.add("Settings", new SettingsPanel());
         add(content, BorderLayout.CENTER);
@@ -319,17 +330,14 @@ public class MainGUI extends JFrame {
         JTable t = new JTable(apptModel);
         p.add(new JScrollPane(t), BorderLayout.CENTER);
         JPanel actions = new JPanel();
-        JButton add = new JButton("Schedule"), res = new JButton("Reschedule"), cancel = new JButton("Cancel"),
-                avail = new JButton("Doctor Availability");
+        JButton add = new JButton("Schedule"), res = new JButton("Reschedule"), cancel = new JButton("Cancel");
         actions.add(add);
         actions.add(res);
         actions.add(cancel);
-        actions.add(avail);
         p.add(actions, BorderLayout.NORTH);
         add.addActionListener(e -> scheduleApptDialog());
         res.addActionListener(e -> rescheduleApptDialog(t));
         cancel.addActionListener(e -> cancelAppt(t));
-        avail.addActionListener(e -> showDoctorAvailability());
         return p;
     }
 
@@ -957,36 +965,6 @@ public class MainGUI extends JFrame {
             }
         });
         return p;
-    }
-
-    private void showDoctorAvailability() {
-        JComboBox<String> doctorBox = new JComboBox<>(DataStore.staff.values().stream()
-                .filter(s -> s.role == StaffRole.DOCTOR).map(s -> s.id + " - " + s.name).toArray(String[]::new));
-        JSpinner dateSpin = new JSpinner(new SpinnerDateModel());
-        JPanel panel = new JPanel(new GridLayout(0, 1));
-        panel.add(new JLabel("Doctor"));
-        panel.add(doctorBox);
-        panel.add(new JLabel("Date"));
-        panel.add(dateSpin);
-        if (JOptionPane.showConfirmDialog(this, panel, "Doctor Availability",
-                JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION)
-            return;
-        String docId = String.valueOf(doctorBox.getSelectedItem()).split(" ")[0];
-        java.util.Date d = (java.util.Date) dateSpin.getValue();
-        java.time.LocalDate day = d.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
-        java.util.List<java.time.LocalTime> times = new java.util.ArrayList<>();
-        for (int h = 9; h <= 17; h++)
-            times.add(java.time.LocalTime.of(h, 0));
-        java.util.Set<java.time.LocalTime> booked = new java.util.HashSet<>();
-        for (Appointment a : DataStore.appointments.values())
-            if (a.staffId.equals(docId) && a.dateTime.toLocalDate().equals(day))
-                booked.add(a.dateTime.toLocalTime());
-        DefaultTableModel m = new DefaultTableModel(new String[] { "Time", "Status" }, 0);
-        for (java.time.LocalTime t : times)
-            m.addRow(new Object[] { t, booked.contains(t) ? "Booked" : "Free" });
-        JTable table = new JTable(m);
-        JOptionPane.showMessageDialog(this, new JScrollPane(table), "Availability for " + docId + " on " + day,
-                JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void showPaymentHistory() {

@@ -3,7 +3,6 @@ package hpms.ui.doctor;
 import hpms.auth.AuthSession;
 import hpms.model.Staff;
 import hpms.util.DataStore;
-import hpms.ui.staff.WeekSchedulePanel;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
@@ -21,12 +20,10 @@ public class DoctorProfilePanel extends JPanel {
     private JTextField licenseField;
     private JTextField yearsField;
     private JTextArea bioArea;
-    private JLabel scheduleLabel;
     private boolean isEditing = false;
     private JButton editBtn;
     private JButton saveBtn;
     private JButton uploadPhotoBtn;
-    private JButton editScheduleBtn;
 
     public DoctorProfilePanel(AuthSession session) {
         this.doctorStaff = DataStore.staff.get(session.userId);
@@ -78,8 +75,7 @@ public class DoctorProfilePanel extends JPanel {
         panel.setBackground(new Color(248, 249, 250));
         panel.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(new Color(226, 232, 240)),
-                BorderFactory.createEmptyBorder(12, 12, 12, 12)
-        ));
+                BorderFactory.createEmptyBorder(12, 12, 12, 12)));
 
         photoLabel = new JLabel();
         if (doctorStaff != null && doctorStaff.photoPath != null && !doctorStaff.photoPath.trim().isEmpty()) {
@@ -131,13 +127,16 @@ public class DoctorProfilePanel extends JPanel {
 
         // Specialization
         gbc.gridy = row++;
-        JLabel specLabel = new JLabel("Specialization:");
+        JLabel specLabel = new JLabel("Specialization (Permanent):");
         specLabel.setFont(new Font("Arial", Font.BOLD, 11));
         panel.add(specLabel, gbc);
         gbc.gridy = row++;
-        specializationField = new JTextField(doctorStaff != null && doctorStaff.specialty != null ? doctorStaff.specialty : "");
+        specializationField = new JTextField(
+                doctorStaff != null && doctorStaff.specialty != null ? doctorStaff.specialty : "");
         specializationField.setFont(new Font("Arial", Font.PLAIN, 11));
         specializationField.setEditable(false);
+        specializationField.setBackground(new Color(240, 240, 240));
+        specializationField.setToolTipText("Doctor specialization is permanent and cannot be changed");
         panel.add(specializationField, gbc);
 
         // License Number
@@ -146,7 +145,8 @@ public class DoctorProfilePanel extends JPanel {
         licenseLabel.setFont(new Font("Arial", Font.BOLD, 11));
         panel.add(licenseLabel, gbc);
         gbc.gridy = row++;
-        licenseField = new JTextField(doctorStaff != null && doctorStaff.licenseNumber != null ? doctorStaff.licenseNumber : "");
+        licenseField = new JTextField(
+                doctorStaff != null && doctorStaff.licenseNumber != null ? doctorStaff.licenseNumber : "");
         licenseField.setFont(new Font("Arial", Font.PLAIN, 11));
         licenseField.setEditable(false);
         panel.add(licenseField, gbc);
@@ -157,7 +157,9 @@ public class DoctorProfilePanel extends JPanel {
         yearsLabel.setFont(new Font("Arial", Font.BOLD, 11));
         panel.add(yearsLabel, gbc);
         gbc.gridy = row++;
-        yearsField = new JTextField(doctorStaff != null && doctorStaff.yearsExperience != null ? String.valueOf(doctorStaff.yearsExperience) : "");
+        yearsField = new JTextField(
+                doctorStaff != null && doctorStaff.yearsExperience != null ? String.valueOf(doctorStaff.yearsExperience)
+                        : "");
         yearsField.setFont(new Font("Arial", Font.PLAIN, 11));
         yearsField.setEditable(false);
         panel.add(yearsField, gbc);
@@ -176,34 +178,14 @@ public class DoctorProfilePanel extends JPanel {
         bioArea.setText(doctorStaff != null && doctorStaff.bio != null ? doctorStaff.bio : "");
         panel.add(new JScrollPane(bioArea), gbc);
 
-        // Schedule
-        gbc.gridy = row++;
-        JLabel scheduleHeading = new JLabel("Clinic Schedule:");
-        scheduleHeading.setFont(new Font("Arial", Font.BOLD, 11));
-        panel.add(scheduleHeading, gbc);
-        gbc.gridy = row++;
-        String sched = doctorStaff != null ? doctorStaff.clinicSchedule_str : null;
-        scheduleLabel = new JLabel(sched != null && !sched.trim().isEmpty() ? sched : "Not set");
-        scheduleLabel.setFont(new Font("Arial", Font.PLAIN, 11));
-        scheduleLabel.setForeground(new Color(107, 114, 128));
-        panel.add(scheduleLabel, gbc);
-
-        gbc.gridy = row++;
-        editScheduleBtn = new JButton("Edit Schedule");
-        editScheduleBtn.setFont(new Font("Arial", Font.PLAIN, 11));
-        editScheduleBtn.setBackground(new Color(47, 111, 237));
-        editScheduleBtn.setForeground(Color.WHITE);
-        editScheduleBtn.setFocusPainted(false);
-        editScheduleBtn.addActionListener(e -> openScheduleEditor());
-        panel.add(editScheduleBtn, gbc);
-
         return panel;
     }
 
     private void toggleEdit() {
         isEditing = !isEditing;
         nameField.setEditable(isEditing);
-        specializationField.setEditable(isEditing);
+        // Specialization is permanent and cannot be edited
+        specializationField.setEditable(false);
         licenseField.setEditable(isEditing);
         yearsField.setEditable(isEditing);
         bioArea.setEditable(isEditing);
@@ -212,7 +194,9 @@ public class DoctorProfilePanel extends JPanel {
 
     private void saveProfile() {
         if (doctorStaff != null) {
-            doctorStaff.specialty = specializationField.getText();
+            // Specialization is permanent and cannot be changed
+            // doctorStaff.specialty = specializationField.getText(); // REMOVED - permanent
+            // field
             doctorStaff.licenseNumber = licenseField.getText();
             try {
                 doctorStaff.yearsExperience = Integer.parseInt(yearsField.getText());
@@ -254,39 +238,4 @@ public class DoctorProfilePanel extends JPanel {
         photoLabel.setIcon(new ImageIcon(scaled));
     }
 
-    private void openScheduleEditor() {
-        JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this));
-        dialog.setTitle("Edit Clinic Schedule");
-        dialog.setModalityType(java.awt.Dialog.ModalityType.APPLICATION_MODAL);
-        WeekSchedulePanel weekPanel = new WeekSchedulePanel();
-        if (doctorStaff != null && doctorStaff.clinicSchedule_str != null) {
-            weekPanel.setScheduleFromString(doctorStaff.clinicSchedule_str);
-        }
-        JButton save = new JButton("Save");
-        save.setFont(new Font("Arial", Font.PLAIN, 11));
-        save.setBackground(new Color(34, 197, 94));
-        save.setForeground(Color.WHITE);
-        save.setFocusPainted(false);
-        save.addActionListener(e -> {
-            String err = weekPanel.validateSchedule();
-            if (err != null) {
-                JOptionPane.showMessageDialog(dialog, err, "Validation Error", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            String s = weekPanel.getScheduleString();
-            if (doctorStaff != null) {
-                doctorStaff.clinicSchedule_str = s;
-            }
-            scheduleLabel.setText(s);
-            dialog.dispose();
-        });
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
-        actions.add(save);
-        dialog.getContentPane().setLayout(new BorderLayout());
-        dialog.getContentPane().add(weekPanel, BorderLayout.CENTER);
-        dialog.getContentPane().add(actions, BorderLayout.SOUTH);
-        dialog.setSize(720, 520);
-        dialog.setLocationRelativeTo(this);
-        dialog.setVisible(true);
-    }
 }

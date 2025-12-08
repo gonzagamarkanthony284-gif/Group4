@@ -21,30 +21,34 @@ public class DataStore {
     public static final Map<String, java.util.List<hpms.model.StatusHistoryEntry>> statusHistory = new LinkedHashMap<>();
     public static final Map<String, java.util.List<hpms.model.StaffNote>> staffNotes = new LinkedHashMap<>();
     public static final Map<String, java.util.List<String>> criticalAlerts = new LinkedHashMap<>();
-    
-    // NEW: Prescription, Medicine, Lab Test Types, Doctor Schedules
+
+    // NEW: Prescription, Medicine, Lab Test Types
     public static final Map<String, hpms.model.Prescription> prescriptions = new LinkedHashMap<>();
     public static final Map<String, hpms.model.Medicine> medicines = new LinkedHashMap<>();
     public static final Map<String, hpms.model.LabTestType> labTestTypes = new LinkedHashMap<>();
-    public static final Map<String, hpms.model.DoctorSchedule> doctorSchedules = new LinkedHashMap<>();
     public static final Map<String, hpms.model.Discharge> discharges = new LinkedHashMap<>();
     public static final Map<String, hpms.model.Communication> communications = new LinkedHashMap<>();
     public static final Map<String, hpms.model.Service> services = new LinkedHashMap<>();
-    
+
     public static final List<String> activityLog = new ArrayList<>();
-    public static final Set<String> departments = new LinkedHashSet<>(Arrays.asList("Cardiology", "Neurology", "Orthopedics", "Pediatrics", "Oncology", "ER", "Admin", "Nursing", "Billing"));
-    public static final java.util.EnumSet<hpms.model.PaymentMethod> allowedPaymentMethods = java.util.EnumSet.of(hpms.model.PaymentMethod.CASH, hpms.model.PaymentMethod.CARD, hpms.model.PaymentMethod.INSURANCE);
+    public static final Set<String> departments = new LinkedHashSet<>(Arrays.asList("Cardiology", "Neurology",
+            "Orthopedics", "Pediatrics", "Oncology", "ER", "Admin", "Nursing", "Billing"));
+    public static final java.util.EnumSet<hpms.model.PaymentMethod> allowedPaymentMethods = java.util.EnumSet
+            .of(hpms.model.PaymentMethod.CASH, hpms.model.PaymentMethod.CARD, hpms.model.PaymentMethod.INSURANCE);
 
     public static final AtomicInteger pCounter = new AtomicInteger(1000);
     public static final AtomicInteger sCounter = new AtomicInteger(2000);
     public static final AtomicInteger aCounter = new AtomicInteger(3000);
     public static final AtomicInteger bCounter = new AtomicInteger(4000);
     public static final AtomicInteger rCounter = new AtomicInteger(5000);
-    public static final java.util.concurrent.atomic.AtomicInteger lCounter = new java.util.concurrent.atomic.AtomicInteger(6000);
-    public static final AtomicInteger prCounter = new AtomicInteger(7000);  // Prescription counter
-    public static final AtomicInteger medCounter = new AtomicInteger(8000);  // Medicine counter
-    public static final AtomicInteger dischargeCounter = new AtomicInteger(9000);  // Discharge counter
-    public static final AtomicInteger commCounter = new AtomicInteger(10000);  // Communication counter
+    public static final java.util.concurrent.atomic.AtomicInteger lCounter = new java.util.concurrent.atomic.AtomicInteger(
+            6000);
+    public static final AtomicInteger prCounter = new AtomicInteger(7000); // Prescription counter
+    public static final AtomicInteger medCounter = new AtomicInteger(8000); // Medicine counter
+    public static final AtomicInteger dischargeCounter = new AtomicInteger(9000); // Discharge counter
+    public static final AtomicInteger commCounter = new AtomicInteger(10000); // Communication counter
 
-    public static void log(String message) { activityLog.add(LocalDateTime.now() + " " + message); }
+    public static void log(String message) {
+        activityLog.add(LocalDateTime.now() + " " + message);
+    }
 }

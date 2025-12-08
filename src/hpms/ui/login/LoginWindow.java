@@ -26,6 +26,11 @@ public class LoginWindow extends JFrame {
             } catch (Exception ex) {
             }
             try {
+                // Check and clear expired clinic schedules after loading data
+                hpms.service.StaffService.checkAndClearExpiredSchedules();
+            } catch (Exception ex) {
+            }
+            try {
                 AuthService.migratePasswordsIfMissing();
             } catch (Exception ex) {
             }
@@ -196,9 +201,16 @@ public class LoginWindow extends JFrame {
                 passField.setText("");
                 return;
             }
-            hpms.ui.MainGUI m = new hpms.ui.MainGUI();
-            m.setVisible(true);
-            dispose();
+            // Route ADMIN users to AdminGUI, all other staff to MainGUI
+            if (u != null && u.role == hpms.model.UserRole.ADMIN) {
+                hpms.ui.AdminGUI adminGui = new hpms.ui.AdminGUI();
+                adminGui.setVisible(true);
+                dispose();
+            } else {
+                hpms.ui.MainGUI mainGui = new hpms.ui.MainGUI();
+                mainGui.setVisible(true);
+                dispose();
+            }
         } else {
             JOptionPane.showMessageDialog(this, String.join("\n", out), "Login Failed", JOptionPane.ERROR_MESSAGE);
             passField.setText("");

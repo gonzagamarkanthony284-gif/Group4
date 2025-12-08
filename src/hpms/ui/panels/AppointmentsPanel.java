@@ -11,7 +11,6 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 
 public class AppointmentsPanel extends JPanel {
     private DefaultTableModel todayModel, upcomingModel, pendingModel;
@@ -201,9 +200,6 @@ public class AppointmentsPanel extends JPanel {
         JButton viewDetailsBtn = createStyledButton("View Details", new Color(156, 39, 176));
         viewDetailsBtn.addActionListener(e -> viewAppointmentDetails());
 
-        JButton docAvailBtn = createStyledButton("Doctor Availability", new Color(0, 150, 136));
-        docAvailBtn.addActionListener(e -> showDoctorAvailability());
-
         JButton refreshBtn = createStyledButton("Refresh", new Color(155, 155, 155));
         refreshBtn.addActionListener(e -> refresh());
 
@@ -213,7 +209,6 @@ public class AppointmentsPanel extends JPanel {
         panel.add(confirmBtn);
         panel.add(new JSeparator(JSeparator.VERTICAL));
         panel.add(viewDetailsBtn);
-        panel.add(docAvailBtn);
         panel.add(refreshBtn);
 
         return panel;
@@ -648,76 +643,5 @@ public class AppointmentsPanel extends JPanel {
                 "Detailed information available upon selection.";
 
         JOptionPane.showMessageDialog(this, details, "Appointment Details", JOptionPane.INFORMATION_MESSAGE);
-    }
-
-    private void showDoctorAvailability() {
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Doctor Availability", true);
-        dialog.setSize(600, 400);
-        dialog.setLocationRelativeTo(SwingUtilities.getWindowAncestor(this));
-
-        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
-        topPanel.setBackground(Color.WHITE);
-
-        JComboBox<String> doctorCombo = new JComboBox<>();
-        DataStore.staff.forEach((id, s) -> {
-            if (s.role == StaffRole.DOCTOR)
-                doctorCombo.addItem(id + " - " + s.name);
-        });
-
-        JSpinner dateSpinner = new JSpinner(new SpinnerDateModel());
-        JSpinner.DateEditor dateEditor = new JSpinner.DateEditor(dateSpinner, "yyyy-MM-dd");
-        dateSpinner.setEditor(dateEditor);
-
-        JButton checkBtn = new JButton("Check Availability");
-        checkBtn.setBackground(new Color(155, 89, 182));
-        checkBtn.setForeground(Color.WHITE);
-        checkBtn.setBorder(BorderFactory.createEmptyBorder(6, 12, 6, 12));
-
-        topPanel.add(new JLabel("Doctor:"));
-        topPanel.add(doctorCombo);
-        topPanel.add(new JLabel("Date:"));
-        topPanel.add(dateSpinner);
-        topPanel.add(checkBtn);
-
-        DefaultTableModel availModel = new DefaultTableModel(new String[] { "Time", "Status" }, 0) {
-            public boolean isCellEditable(int r, int c) {
-                return false;
-            }
-        };
-        JTable availTable = new JTable(availModel);
-
-        checkBtn.addActionListener(e -> {
-            if (doctorCombo.getSelectedIndex() < 0) {
-                JOptionPane.showMessageDialog(dialog, "Please select a doctor", "Selection Required",
-                        JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            String docId = doctorCombo.getSelectedItem().toString().split(" - ")[0];
-            String dateStr = new java.text.SimpleDateFormat("yyyy-MM-dd")
-                    .format((java.util.Date) dateSpinner.getValue());
-
-            availModel.setRowCount(0);
-
-            LocalDate selectedDate = LocalDate.parse(dateStr);
-            for (int h = 9; h <= 17; h++) {
-                LocalTime time = LocalTime.of(h, 0);
-                boolean isBooked = false;
-
-                for (Appointment appt : DataStore.appointments.values()) {
-                    if (appt.staffId.equals(docId) && appt.dateTime.toLocalDate().equals(selectedDate)
-                            && appt.dateTime.toLocalTime().equals(time)) {
-                        isBooked = true;
-                        break;
-                    }
-                }
-
-                availModel.addRow(new Object[] { time.toString(), isBooked ? "Booked" : "Available" });
-            }
-        });
-
-        dialog.add(topPanel, BorderLayout.NORTH);
-        dialog.add(new JScrollPane(availTable), BorderLayout.CENTER);
-        dialog.setVisible(true);
     }
 }
