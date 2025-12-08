@@ -1,4 +1,4 @@
-﻿package hpms.ui.panels;
+package hpms.ui.panels;
 
 import hpms.model.*;
 import hpms.service.*;

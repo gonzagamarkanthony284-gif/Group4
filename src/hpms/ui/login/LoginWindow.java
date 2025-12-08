@@ -201,16 +201,10 @@ public class LoginWindow extends JFrame {
                 passField.setText("");
                 return;
             }
-            // Route ADMIN users to AdminGUI, all other staff to MainGUI
-            if (u != null && u.role == hpms.model.UserRole.ADMIN) {
-                hpms.ui.AdminGUI adminGui = new hpms.ui.AdminGUI();
-                adminGui.setVisible(true);
-                dispose();
-            } else {
-                hpms.ui.MainGUI mainGui = new hpms.ui.MainGUI();
-                mainGui.setVisible(true);
-                dispose();
-            }
+            // Route users to MainGUI (handles all roles)
+            hpms.ui.MainGUI mainGui = new hpms.ui.MainGUI();
+            mainGui.setVisible(true);
+            dispose();
         } else {
             JOptionPane.showMessageDialog(this, String.join("\n", out), "Login Failed", JOptionPane.ERROR_MESSAGE);
             passField.setText("");

@@ -84,19 +84,9 @@ public class MainGUI extends JFrame {
         UserRole role = AuthService.current == null ? null : AuthService.current.role;
         java.util.List<String> menuList = new java.util.ArrayList<>();
 
-        // ADMIN users should NOT use MainGUI - they should use AdminGUI
-        // Prevent admin access to MainGUI
         if (role == UserRole.ADMIN) {
-            JOptionPane.showMessageDialog(this, "Administrators must use the Administration interface. Redirecting...",
-                    "Access Denied", JOptionPane.WARNING_MESSAGE);
-            try {
-                hpms.util.BackupUtil.saveToDefault();
-            } catch (Exception ex) {
-            }
-            AuthService.logout();
-            new hpms.ui.login.LoginWindow().setVisible(true);
-            dispose();
-            return;
+            menuList.addAll(java.util.Arrays.asList("Dashboard", "Staff", "Patients", "Appointments", "Billing",
+                    "Rooms", "Inventory", "Reports", "Settings", "Logout"));
         } else if (role == UserRole.DOCTOR) {
             menuList.addAll(
                     java.util.Arrays.asList("Dashboard", "Patients", "Appointments", "Reports", "Settings", "Logout"));

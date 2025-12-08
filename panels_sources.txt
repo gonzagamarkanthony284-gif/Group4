@@ -1,0 +1,15 @@
+﻿C:\xampp\htdocs\HPMS\src\hpms\ui\panels\AdministrationPanel.java
+C:\xampp\htdocs\HPMS\src\hpms\ui\panels\AppointmentsPanel.java
+C:\xampp\htdocs\HPMS\src\hpms\ui\panels\BillingPanel.java
+C:\xampp\htdocs\HPMS\src\hpms\ui\panels\DashboardPanel.java
+C:\xampp\htdocs\HPMS\src\hpms\ui\panels\DischargePanel.java
+C:\xampp\htdocs\HPMS\src\hpms\ui\panels\LaboratoryPanel.java
+C:\xampp\htdocs\HPMS\src\hpms\ui\panels\MessagingPanel.java
+C:\xampp\htdocs\HPMS\src\hpms\ui\panels\PatientsPanel.java
+C:\xampp\htdocs\HPMS\src\hpms\ui\panels\PharmacyPanel.java
+C:\xampp\htdocs\HPMS\src\hpms\ui\panels\PrescriptionPanel.java
+C:\xampp\htdocs\HPMS\src\hpms\ui\panels\ReportsPanel.java
+C:\xampp\htdocs\HPMS\src\hpms\ui\panels\RoomsPanel.java
+C:\xampp\htdocs\HPMS\src\hpms\ui\panels\ServicesPanel.java
+C:\xampp\htdocs\HPMS\src\hpms\ui\panels\SettingsPanel.java
+C:\xampp\htdocs\HPMS\src\hpms\ui\panels\StaffPanel.java
