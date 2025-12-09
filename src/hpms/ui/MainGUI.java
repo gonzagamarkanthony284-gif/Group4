@@ -65,6 +65,10 @@ public class MainGUI extends JFrame {
         }
     };
     private hpms.ui.panels.PatientsPanel patientsPanel;
+    private hpms.ui.panels.DashboardPanel dashboardPanel;
+    private hpms.ui.doctor.DoctorDashboardPanel doctorDashboardPanel;
+    private hpms.ui.nurse.NurseDashboardPanel nurseDashboardPanel;
+    private hpms.ui.cashier.CashierDashboardPanel cashierDashboardPanel;
 
     public MainGUI() {
         // Apply global UI theme
@@ -122,7 +126,8 @@ public class MainGUI extends JFrame {
                     s != null && s.name != null ? s.name : (u != null ? u.username : "Doctor"),
                     hpms.model.UserRole.DOCTOR,
                     s != null ? s.department : "");
-            content.add("Dashboard", new hpms.ui.doctor.DoctorDashboardPanel(sessionObj));
+            doctorDashboardPanel = new hpms.ui.doctor.DoctorDashboardPanel(sessionObj);
+            content.add("Dashboard", doctorDashboardPanel);
             if (menuList.contains("Patients")) {
                 content.add("Patients", new hpms.ui.doctor.DoctorPatientsPanel(sessionObj));
             }
@@ -137,7 +142,8 @@ public class MainGUI extends JFrame {
                     s != null && s.name != null ? s.name : (u != null ? u.username : "Nurse"),
                     hpms.model.UserRole.NURSE,
                     s != null ? s.department : "");
-            content.add("Dashboard", new NurseDashboardPanel(sessionObj));
+            nurseDashboardPanel = new NurseDashboardPanel(sessionObj);
+            content.add("Dashboard", nurseDashboardPanel);
             if (menuList.contains("Patients")) {
                 patientsPanel = new PatientsPanel();
                 content.add("Patients", patientsPanel);
@@ -155,13 +161,15 @@ public class MainGUI extends JFrame {
                     s != null && s.name != null ? s.name : (u != null ? u.username : "Cashier"),
                     hpms.model.UserRole.CASHIER,
                     s != null ? s.department : "");
-            content.add("Dashboard", new CashierDashboardPanel(sessionObj));
+            cashierDashboardPanel = new CashierDashboardPanel(sessionObj);
+            content.add("Dashboard", cashierDashboardPanel);
             if (menuList.contains("Billing"))
                 content.add("Billing", new BillingPanel());
             if (menuList.contains("Reports"))
                 content.add("Reports", new ReportsPanel());
         } else {
-            content.add("Dashboard", new DashboardPanel());
+            dashboardPanel = new DashboardPanel();
+            content.add("Dashboard", dashboardPanel);
             if (menuList.contains("Patients")) {
                 patientsPanel = new PatientsPanel();
                 content.add("Patients", patientsPanel);
@@ -178,9 +186,13 @@ public class MainGUI extends JFrame {
                 content.add("Rooms", new RoomsPanel());
         }
 
-        // NOTE: Staff and Administration panels are NOT added here - they are
-        // admin-only features
-        // Non-admin staff cannot access Staff management or Administration panels
+        // Add Staff panel for ADMIN users
+        if (role == UserRole.ADMIN) {
+            if (menuList.contains("Staff"))
+                content.add("Staff", new StaffPanel());
+            if (menuList.contains("Inventory"))
+                content.add("Inventory", new PharmacyPanel());
+        }
 
         if (role != UserRole.CASHIER) {
             if (menuList.contains("Reports"))
@@ -252,7 +264,8 @@ public class MainGUI extends JFrame {
                 return "Create and process bills/payments";
             case "Rooms":
                 return "Assign or vacate rooms and beds";
-
+            case "Inventory":
+                return "Manage medicines and pharmacy inventory";
             case "Staff":
                 return "Manage staff records and user accounts";
             case "Reports":
@@ -420,6 +433,21 @@ public class MainGUI extends JFrame {
     private void refreshTables() {
         if (patientsPanel != null)
             patientsPanel.refresh();
+
+        // Refresh all dashboard panels
+        if (dashboardPanel != null) {
+            dashboardPanel.refresh();
+        }
+        if (doctorDashboardPanel != null) {
+            doctorDashboardPanel.refresh();
+        }
+        if (nurseDashboardPanel != null) {
+            nurseDashboardPanel.refresh();
+        }
+        if (cashierDashboardPanel != null) {
+            cashierDashboardPanel.refresh();
+        }
+
         staffModel.setRowCount(0);
         for (Staff s : DataStore.staff.values()) {
             String details = "";

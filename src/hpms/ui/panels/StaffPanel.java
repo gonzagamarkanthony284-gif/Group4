@@ -881,9 +881,14 @@ public class StaffPanel extends JPanel {
      */
     private void applyDoctorFilters(String department, String specialty) {
         doctorModel.setRowCount(0);
+        boolean showDeactivated = showDeactivatedCheck != null && showDeactivatedCheck.isSelected();
 
         for (Staff staff : DataStore.staff.values()) {
             if (staff.role != StaffRole.DOCTOR)
+                continue;
+
+            // Skip deactivated unless checkbox is checked
+            if (!staff.isActive && !showDeactivated)
                 continue;
 
             // Apply department filter
@@ -898,13 +903,25 @@ public class StaffPanel extends JPanel {
 
             // If passed all filters, add to table
             String details = getStaffDetails(staff);
+            String status = staff.isActive ? "Active" : "Deactivated";
+            if (staff.isActive && staff.isScheduleExpired()) {
+                status = "Schedule Expired";
+            } else if (staff.isActive && staff.scheduleEndDate != null) {
+                // Check if schedule expires within 7 days
+                long daysUntilExpiry = java.time.temporal.ChronoUnit.DAYS.between(
+                        java.time.LocalDateTime.now(),
+                        staff.scheduleEndDate);
+                if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
+                    status = "Expiring Soon (" + daysUntilExpiry + "d)";
+                }
+            }
             Object[] row = new Object[] {
                     staff.id,
                     staff.name,
                     staff.department,
                     staff.specialty == null ? "" : staff.specialty, // Expertise column
                     details,
-                    "Active",
+                    status,
                     staff.createdAt == null ? "" : staff.createdAt.toLocalDate().toString()
             };
             doctorModel.addRow(row);

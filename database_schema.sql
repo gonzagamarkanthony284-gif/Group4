@@ -11,6 +11,7 @@ CREATE TABLE users (
     salt VARCHAR(255) NOT NULL,
     role ENUM('ADMIN', 'DOCTOR', 'NURSE', 'CASHIER', 'PATIENT', 'STAFF') NOT NULL,
     display_password VARCHAR(100),
+    status ENUM('ACTIVE', 'DEACTIVATED') DEFAULT 'ACTIVE',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -65,6 +66,36 @@ CREATE TABLE patients (
     INDEX idx_name (name),
     INDEX idx_contact (contact),
     INDEX idx_active (is_active)
+);
+
+-- Staff table (created early because other tables reference it)
+CREATE TABLE staff (
+    id VARCHAR(20) PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    role ENUM('DOCTOR', 'NURSE', 'ADMIN', 'CASHIER', 'STAFF') NOT NULL,
+    department VARCHAR(100),
+    phone VARCHAR(50),
+    email VARCHAR(200),
+    license_number VARCHAR(100),
+    specialty VARCHAR(100),
+    sub_specialization VARCHAR(100),
+    nursing_field VARCHAR(100),
+    years_experience INT,
+    years_practice INT,
+    years_of_work INT,
+    clinic_schedule_str TEXT,
+    schedule_start_date DATETIME,
+    schedule_end_date DATETIME,
+    qualifications TEXT,
+    certifications TEXT,
+    bio TEXT,
+    employee_id VARCHAR(50),
+    status VARCHAR(50) DEFAULT 'Active',
+    photo_path VARCHAR(500),
+    is_available BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_name (name),
+    INDEX idx_role (role)
 );
 
 -- Patient attachments (for file paths)
@@ -158,36 +189,6 @@ CREATE TABLE patient_discharge_summaries (
     summary TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
-);
-
--- Staff table
-CREATE TABLE staff (
-    id VARCHAR(20) PRIMARY KEY,
-    name VARCHAR(200) NOT NULL,
-    role ENUM('DOCTOR', 'NURSE', 'ADMIN', 'CASHIER', 'STAFF') NOT NULL,
-    department VARCHAR(100),
-    phone VARCHAR(50),
-    email VARCHAR(200),
-    license_number VARCHAR(100),
-    specialty VARCHAR(100),
-    sub_specialization VARCHAR(100),
-    nursing_field VARCHAR(100),
-    years_experience INT,
-    years_practice INT,
-    years_of_work INT,
-    clinic_schedule_str TEXT,
-    schedule_start_date DATETIME,
-    schedule_end_date DATETIME,
-    qualifications TEXT,
-    certifications TEXT,
-    bio TEXT,
-    employee_id VARCHAR(50),
-    status VARCHAR(50) DEFAULT 'Active',
-    photo_path VARCHAR(500),
-    is_available BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_name (name),
-    INDEX idx_role (role)
 );
 
 -- Appointments table
@@ -342,8 +343,8 @@ CREATE TABLE patient_status (
     patient_id VARCHAR(20) PRIMARY KEY,
     status ENUM('ACTIVE', 'ADMITTED', 'DISCHARGED', 'CRITICAL', 'STABLE', 'DECEASED') NOT NULL,
     room_id VARCHAR(20),
-    admission_date TIMESTAMP,
-    discharge_date TIMESTAMP,
+    admission_date TIMESTAMP NULL,
+    discharge_date TIMESTAMP NULL,
     notes TEXT,
     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
     FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE SET NULL
@@ -390,7 +391,7 @@ CREATE TABLE critical_alerts (
 CREATE TABLE discharges (
     id VARCHAR(20) PRIMARY KEY,
     patient_id VARCHAR(20) NOT NULL,
-    discharge_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    discharge_date TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
     discharge_summary TEXT,
     follow_up_instructions TEXT,
     medications_prescribed TEXT,

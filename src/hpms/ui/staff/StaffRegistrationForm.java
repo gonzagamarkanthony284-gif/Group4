@@ -121,17 +121,17 @@ public class StaffRegistrationForm extends JFrame {
         // Name
         gbc.gridx = 0;
         gbc.gridy++;
-        gbc.weightx = 0.15;
+        gbc.weightx = 0.1;
         card.add(new JLabel("Name *"), gbc);
         gbc.gridx = 1;
-        gbc.weightx = 0.35;
+        gbc.weightx = 0.5;
         nameField = new JTextField();
         Theme.styleTextField(nameField);
-        nameField.setPreferredSize(new Dimension(200, 28));
+        nameField.setMinimumSize(new Dimension(300, 28));
         card.add(nameField, gbc);
 
         gbc.gridx = 2;
-        gbc.weightx = 0.15;
+        gbc.weightx = 0.1;
         card.add(new JLabel("Role *"), gbc);
         gbc.gridx = 3;
         gbc.weightx = 0.35;
@@ -150,20 +150,20 @@ public class StaffRegistrationForm extends JFrame {
         gbc.weightx = 0.15;
         card.add(new JLabel("Phone *"), gbc);
         gbc.gridx = 1;
-        gbc.weightx = 0.35;
+        gbc.weightx = 0.5;
         phoneField = new JTextField();
         Theme.styleTextField(phoneField);
-        phoneField.setPreferredSize(new Dimension(200, 28));
+        phoneField.setMinimumSize(new Dimension(300, 28));
         card.add(phoneField, gbc);
 
         gbc.gridx = 2;
         gbc.weightx = 0.15;
         card.add(new JLabel("Email *"), gbc);
         gbc.gridx = 3;
-        gbc.weightx = 0.35;
+        gbc.weightx = 0.5;
         emailField = new JTextField();
         Theme.styleTextField(emailField);
-        emailField.setPreferredSize(new Dimension(200, 28));
+        emailField.setMinimumSize(new Dimension(300, 28));
         card.add(emailField, gbc);
 
         // Department & Status
@@ -307,22 +307,22 @@ public class StaffRegistrationForm extends JFrame {
         gbc.weightx = 0.2;
         panel.add(new JLabel("Specialization *"), gbc);
         gbc.gridx = 1;
-        gbc.weightx = 0.3;
+        gbc.weightx = 0.4;
         specCombo = new JComboBox<>(new String[] { "Cardiology", "Pediatrics", "General Medicine", "Surgery",
                 "Orthopedic", "ENT", "Dermatology", "OB-Gyne" });
         specCombo.setBackground(Color.WHITE);
         specCombo.setBorder(BorderFactory.createLineBorder(Theme.BORDER));
-        specCombo.setPreferredSize(new Dimension(220, 28));
+        specCombo.setMinimumSize(new Dimension(300, 28));
         panel.add(specCombo, gbc);
 
         gbc.gridx = 2;
         gbc.weightx = 0.2;
         panel.add(new JLabel("Years of Practice *"), gbc);
         gbc.gridx = 3;
-        gbc.weightx = 0.3;
+        gbc.weightx = 0.4;
         yearsPracticeDoctor = new JTextField();
         Theme.styleTextField(yearsPracticeDoctor);
-        yearsPracticeDoctor.setPreferredSize(new Dimension(100, 28));
+        yearsPracticeDoctor.setMinimumSize(new Dimension(200, 28));
         panel.add(yearsPracticeDoctor, gbc);
 
         // Sub-specialty & License
@@ -331,20 +331,20 @@ public class StaffRegistrationForm extends JFrame {
         gbc.weightx = 0.2;
         panel.add(new JLabel("Sub-Specialty"), gbc);
         gbc.gridx = 1;
-        gbc.weightx = 0.3;
+        gbc.weightx = 0.4;
         subSpec = new JTextField();
         Theme.styleTextField(subSpec);
-        subSpec.setPreferredSize(new Dimension(220, 28));
+        subSpec.setMinimumSize(new Dimension(300, 28));
         panel.add(subSpec, gbc);
 
         gbc.gridx = 2;
         gbc.weightx = 0.2;
         panel.add(new JLabel("License Number *"), gbc);
         gbc.gridx = 3;
-        gbc.weightx = 0.3;
+        gbc.weightx = 0.4;
         licenseDoctor = new JTextField();
         Theme.styleTextField(licenseDoctor);
-        licenseDoctor.setPreferredSize(new Dimension(100, 28));
+        licenseDoctor.setMinimumSize(new Dimension(200, 28));
         panel.add(licenseDoctor, gbc);
 
         return panel;

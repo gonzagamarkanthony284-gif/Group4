@@ -12,7 +12,7 @@ public class PatientService {
         List<String> out = new ArrayList<>();
         if (Validators.empty(name) || Validators.empty(age) || Validators.empty(birthday) || Validators.empty(gender)
                 || Validators.empty(contact) || Validators.empty(address) || Validators.empty(patientType)) {
-            out.add("Error: Missing required fields. Please provide: Name, Age, Birthday, Gender, Contact, Address, and Patient Type (INPATIENT/OUTPATIENT)");
+            out.add("Error: Missing required fields. Please provide: Name, Age, Birthday, Gender, Contact, Address, and Patient Type (INPATIENT/EMERGENCY/OUTPATIENT)");
             return out;
         }
         Gender g;
@@ -51,8 +51,8 @@ public class PatientService {
             }
         // Validate patient type
         String ptType = patientType.trim().toUpperCase();
-        if (!ptType.equals("INPATIENT") && !ptType.equals("OUTPATIENT")) {
-            out.add("Error: Patient Type must be either INPATIENT or OUTPATIENT");
+        if (!ptType.equals("INPATIENT") && !ptType.equals("OUTPATIENT") && !ptType.equals("EMERGENCY")) {
+            out.add("Error: Patient Type must be either INPATIENT, EMERGENCY, or OUTPATIENT");
             return out;
         }
         String id = IDGenerator.nextId("P");
@@ -61,7 +61,22 @@ public class PatientService {
         p.patientType = ptType;
         p.validateCompleteness(); // Check if all required fields are complete
         DataStore.patients.put(id, p);
-        LogManager.log("add_patient id=" + id + " complete=" + p.isComplete + " type=" + p.patientType);
+
+        // Initialize patient status based on patient type
+        PatientStatus initialStatus;
+        if (ptType.equals("INPATIENT")) {
+            initialStatus = PatientStatus.INPATIENT;
+        } else if (ptType.equals("EMERGENCY")) {
+            initialStatus = PatientStatus.EMERGENCY;
+        } else {
+            initialStatus = PatientStatus.OUTPATIENT;
+        }
+        DataStore.patientStatus.put(id, initialStatus);
+        DataStore.statusHistory.computeIfAbsent(id, k -> new ArrayList<>())
+                .add(new StatusHistoryEntry(initialStatus, LocalDateTime.now(), "SYSTEM", "Initial registration"));
+
+        LogManager.log("add_patient id=" + id + " complete=" + p.isComplete + " type=" + p.patientType
+                + " initial_status=" + initialStatus);
         try {
             BackupUtil.saveToDefault();
         } catch (Exception ex) {
@@ -154,32 +169,45 @@ public class PatientService {
             String smokingStatus, String alcoholUse, String occupation,
             String insuranceProvider, String insuranceId, String policyHolderName,
             String policyHolderDob, String policyRelationship) {
+        // CRITICAL: Check if record is locked BEFORE attempting any edits
+        Patient p = DataStore.patients.get(id);
+        if (p == null) {
+            List<String> out = new ArrayList<>();
+            out.add("Error: Invalid patient ID");
+            return out;
+        }
+        if (p.isOutpatientPermanent) {
+            List<String> out = new ArrayList<>();
+            out.add("Error: Patient record is locked. Once marked as Outpatient or Discharged, the record cannot be edited. "
+                    + "If this patient returns, please create a new patient record.");
+            LogManager.log("patient_edit_extended_rejected patient=" + id
+                    + " reason=record_locked permanent_outpatient=" + p.isOutpatientPermanent);
+            return out;
+        }
+
         List<String> out = edit(id, name, age, gender, contact, address);
         if (out.isEmpty()) {
             out.add("Error: unknown failure");
             return out;
         }
-        Patient p = DataStore.patients.get(id);
+        p = DataStore.patients.get(id);
         // Update birthday and patient type
         if (birthday != null && !birthday.trim().isEmpty())
             p.birthday = birthday.trim();
 
-        // CRITICAL RULE: If patient is marked as OUTPATIENT, that status is PERMANENT
-        // and CANNOT be changed
+        // CRITICAL RULE: Patient Type is LOCKED after creation and CANNOT be changed
+        // This applies to ALL patient types: INPATIENT, EMERGENCY, and OUTPATIENT
+        // The patientType parameter is completely ignored in edit operations
         if (patientType != null && !patientType.trim().isEmpty()) {
-            String ptType = patientType.trim().toUpperCase();
-            if (ptType.equals("INPATIENT") || ptType.equals("OUTPATIENT")) {
-                // If patient is being set to OUTPATIENT for the first time, mark it permanent
-                if ("OUTPATIENT".equals(ptType) && !p.isOutpatientPermanent) {
-                    p.patientType = ptType;
-                    p.isOutpatientPermanent = true; // Once OUTPATIENT, always OUTPATIENT
-                } else if (p.isOutpatientPermanent) {
-                    // If already marked as permanent OUTPATIENT, DO NOT allow any changes
-                    // Silently ignore the change attempt - patient remains OUTPATIENT
-                } else {
-                    // Patient is not permanent outpatient yet, can change freely
-                    p.patientType = ptType;
-                }
+            // Log the attempt but do NOT change the patient type
+            LogManager.log("patient_type_change_rejected patient=" + id
+                    + " current_type=" + p.patientType
+                    + " attempted_type=" + patientType.trim().toUpperCase()
+                    + " reason=patient_type_locked_after_creation");
+
+            // Set permanent outpatient flag if applicable
+            if ("OUTPATIENT".equals(p.patientType) && !p.isOutpatientPermanent) {
+                p.isOutpatientPermanent = true;
             }
         }
         if (p == null) {
@@ -380,6 +408,18 @@ public class PatientService {
             out.add("Error: Invalid patient ID");
             return out;
         }
+
+        // CRITICAL: Once a patient is marked as OUTPATIENT or DISCHARGED, their record
+        // is LOCKED
+        // No further edits are allowed
+        if (p.isOutpatientPermanent) {
+            out.add("Error: Patient record is locked. Once marked as Outpatient or Discharged, the record cannot be edited. "
+                    + "If this patient returns, please create a new patient record.");
+            LogManager.log("patient_edit_rejected patient=" + id + " reason=record_locked permanent_outpatient="
+                    + p.isOutpatientPermanent);
+            return out;
+        }
+
         if (Validators.empty(name) || Validators.empty(age) || Validators.empty(gender) || Validators.empty(contact)
                 || Validators.empty(address)) {
             out.add("Error: Missing parameters");

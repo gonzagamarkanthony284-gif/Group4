@@ -28,12 +28,24 @@ public class RoomService {
                     + " reason=wrong_status current_status=" + status);
             return out;
         }
-        if (r.status == RoomStatus.OCCUPIED) {
-            out.add("Error: Room is occupied");
+        // Check if room is occupied by a different patient
+        if (r.occupantPatientId != null && !r.occupantPatientId.equals(patientId)) {
+            out.add("Error: Room is already occupied by another patient");
             LogManager.log("assign_room_rejected patient=" + patientId + " room=" + roomId
-                    + " reason=room_occupied");
+                    + " reason=room_occupied_by_different_patient occupant=" + r.occupantPatientId);
             return out;
         }
+
+        // Check if patient already has a room assigned
+        for (Room room : DataStore.rooms.values()) {
+            if (room.occupantPatientId != null && room.occupantPatientId.equals(patientId) && !room.id.equals(roomId)) {
+                out.add("Error: Patient is already assigned to another room (" + room.id + ")");
+                LogManager.log("assign_room_rejected patient=" + patientId + " room=" + roomId
+                        + " reason=patient_already_has_room existing_room=" + room.id);
+                return out;
+            }
+        }
+
         r.status = RoomStatus.OCCUPIED;
         r.occupantPatientId = patientId;
         // Enhanced audit log with more details

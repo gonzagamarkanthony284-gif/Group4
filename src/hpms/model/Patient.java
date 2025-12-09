@@ -8,8 +8,19 @@ public class Patient {
     public int age;
     public String birthday; // Format: YYYY-MM-DD
     public Gender gender;
+    public String preferredPronouns = ""; // He/Him, She/Her, They/Them, Other
     public String contact;
     public String address;
+    public String city = "";
+    public String state = "";
+    public String zip = "";
+    public String email = "";
+    public String primaryLanguage = "";
+    public String interpreterNeeded = "No"; // Yes/No
+    public String emergencyContactName = "";
+    public String emergencyContactPhone = "";
+    public String emergencyContactRelationship = "";
+    public String preferredContactMethod = ""; // Phone, Email, Text
     public String patientType = ""; // INPATIENT or OUTPATIENT - required field
     public boolean isOutpatientPermanent = false; // Once marked as OUTPATIENT, this flag is set and NEVER changed
     public boolean isComplete = false; // Flag to track if all required fields are filled

@@ -15,6 +15,22 @@ public class PatientStatusService {
             out.add("Error: Patient not found");
             return out;
         }
+
+        // CRITICAL: Once a patient is marked as OUTPATIENT or DISCHARGED, their record
+        // is LOCKED
+        // No further status changes are allowed
+        PatientStatus currentStatus = DataStore.patientStatus.get(patientId);
+        if (currentStatus == PatientStatus.OUTPATIENT || currentStatus == PatientStatus.DISCHARGED
+                || p.isOutpatientPermanent) {
+            out.add("Error: Patient record is locked. Once marked as Outpatient or Discharged, status cannot be changed. "
+                    + "If returning, please create a new patient record.");
+            LogManager.log("status_change_rejected patient=" + patientId
+                    + " reason=record_locked current_status=" + currentStatus
+                    + " permanent_outpatient=" + p.isOutpatientPermanent
+                    + " attempted_status=" + status.toUpperCase(java.util.Locale.ROOT));
+            return out;
+        }
+
         PatientStatus st;
         try {
             st = PatientStatus.valueOf(status.toUpperCase(java.util.Locale.ROOT));
@@ -23,9 +39,11 @@ public class PatientStatusService {
             return out;
         }
 
-        // If changing to OUTPATIENT, clear any room assignment
+        // If changing to OUTPATIENT, clear any room assignment and lock the record
         PatientStatus oldStatus = DataStore.patientStatus.get(patientId);
-        if (st == PatientStatus.OUTPATIENT) {
+        if (st == PatientStatus.OUTPATIENT || st == PatientStatus.DISCHARGED) {
+            // Mark patient as permanently outpatient/discharged
+            p.isOutpatientPermanent = true;
             for (Room r : DataStore.rooms.values()) {
                 if (patientId.equals(r.occupantPatientId)) {
                     r.status = RoomStatus.VACANT;

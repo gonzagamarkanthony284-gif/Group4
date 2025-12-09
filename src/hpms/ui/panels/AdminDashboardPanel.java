@@ -39,7 +39,7 @@ public class AdminDashboardPanel extends JPanel {
         long total = DataStore.rooms.size();
         metricsPanel.add(createCard("Bed Occupancy", occupied + "/" + total, new Color(76, 175, 80)));
 
-        double totalBills = DataStore.bills.values().stream().mapToDouble(b -> b.totalAmount).sum();
+        double totalBills = DataStore.bills.values().stream().mapToDouble(b -> b.total).sum();
         metricsPanel.add(createCard("Total Billing", String.format("%.2f", totalBills), new Color(255, 152, 0)));
 
         scrollPanel.add(metricsPanel);
@@ -70,9 +70,9 @@ public class AdminDashboardPanel extends JPanel {
 
         long vacantRooms = DataStore.rooms.values().stream().filter(r -> r.status == RoomStatus.VACANT).count();
         long pendingAppts = DataStore.appointments.values().stream()
-                .filter(a -> a.status == AppointmentStatus.PENDING).count();
+                .filter(a -> a.isCompleted == false).count();
         long unpaidBills = DataStore.bills.values().stream()
-                .filter(b -> b.status == BillStatus.PENDING).count();
+                .filter(b -> b.paid == false).count();
         long activeUsers = DataStore.users.size();
 
         statusPanel.add(createCard("Vacant Rooms", String.valueOf(vacantRooms), new Color(76, 175, 80)));

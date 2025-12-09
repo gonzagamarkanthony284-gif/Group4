@@ -92,21 +92,33 @@ public class AdministrationPanel extends JPanel {
         styleButton(addBtn, new Color(0, 110, 102));
         addBtn.addActionListener(e -> addUserDialog());
 
-        JButton deleteBtn = new JButton("Delete User");
-        styleButton(deleteBtn, new Color(192, 57, 43));
-        deleteBtn.addActionListener(e -> {
+        JButton deactivateBtn = new JButton("Deactivate Account");
+        styleButton(deactivateBtn, new Color(192, 57, 43));
+        deactivateBtn.addActionListener(e -> {
             int row = userTable.getSelectedRow();
             if (row < 0) {
-                JOptionPane.showMessageDialog(this, "Select a user to delete", "Selection Required",
+                JOptionPane.showMessageDialog(this, "Select a user to deactivate", "Selection Required",
                         JOptionPane.WARNING_MESSAGE);
                 return;
             }
-            int confirm = JOptionPane.showConfirmDialog(this, "Delete this user?", "Confirm",
-                    JOptionPane.YES_NO_OPTION);
+            String username = String.valueOf(userTable.getValueAt(row, 0));
+
+            int confirm = JOptionPane.showConfirmDialog(this,
+                    "Deactivate this user account?\n\nThe account will be preserved in the database and can be reactivated later.",
+                    "Confirm Deactivation", JOptionPane.YES_NO_OPTION);
             if (confirm == JOptionPane.YES_OPTION) {
-                JOptionPane.showMessageDialog(this, "User deleted successfully", "Success",
-                        JOptionPane.INFORMATION_MESSAGE);
-                refresh();
+                hpms.auth.User user = hpms.util.DataStore.users.get(username);
+                if (user != null) {
+                    user.status = "DEACTIVATED";
+                    try {
+                        hpms.util.BackupUtil.saveToDefault();
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
+                    JOptionPane.showMessageDialog(this, "Account deactivated successfully", "Success",
+                            JOptionPane.INFORMATION_MESSAGE);
+                    refresh();
+                }
             }
         });
 
@@ -115,7 +127,7 @@ public class AdministrationPanel extends JPanel {
         refreshBtn.addActionListener(e -> refresh());
 
         actionPanel.add(addBtn);
-        actionPanel.add(deleteBtn);
+        actionPanel.add(deactivateBtn);
         actionPanel.add(refreshBtn);
 
         panel.add(actionPanel, BorderLayout.SOUTH);

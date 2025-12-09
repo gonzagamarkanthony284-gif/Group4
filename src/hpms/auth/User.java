@@ -10,6 +10,7 @@ public class User {
     public String salt;
     public UserRole role;
     public String displayPassword;
+    public String status = "ACTIVE"; // ACTIVE or DEACTIVATED
 
     public User(String username, String password, String salt, UserRole role) {
         this.username = username;
@@ -17,5 +18,6 @@ public class User {
         this.salt = salt;
         this.role = role;
         this.displayPassword = null;
+        this.status = "ACTIVE";
     }
 }

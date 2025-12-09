@@ -20,15 +20,20 @@ public class BillingPanel extends JPanel {
     public BillingPanel() {
         setLayout(new BorderLayout());
         setBackground(Theme.BG);
-        add(SectionHeader.info("Billing & Payment Management", "Create, manage bills and process payments with detailed tracking"), BorderLayout.NORTH);
+        add(SectionHeader.info("Billing & Payment Management",
+                "Create, manage bills and process payments with detailed tracking"), BorderLayout.NORTH);
 
         // Stats panel
         JPanel statsPanel = createStatsPanel();
         add(statsPanel, BorderLayout.BEFORE_FIRST_LINE);
 
         // Billing table
-        billModel = new DefaultTableModel(new String[]{"Bill ID", "Patient Name", "Total Amount", "Items", "Status", "Payment Method", "Date"}, 0) {
-            public boolean isCellEditable(int r, int c) { return false; }
+        billModel = new DefaultTableModel(
+                new String[] { "Bill ID", "Patient Name", "Total Amount", "Items", "Status", "Payment Method", "Date" },
+                0) {
+            public boolean isCellEditable(int r, int c) {
+                return false;
+            }
         };
         billTable = new JTable(billModel);
         billTable.setFont(new Font("Segoe UI", Font.PLAIN, 12));
@@ -52,7 +57,8 @@ public class BillingPanel extends JPanel {
         // keep billing table up-to-date when returning to this panel
         this.addHierarchyListener(evt -> {
             if ((evt.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) != 0) {
-                if (this.isShowing()) SwingUtilities.invokeLater(this::refresh);
+                if (this.isShowing())
+                    SwingUtilities.invokeLater(this::refresh);
             }
         });
     }
@@ -131,24 +137,33 @@ public class BillingPanel extends JPanel {
         c.insets = new Insets(8, 8, 8, 8);
         c.fill = GridBagConstraints.HORIZONTAL;
 
-        c.gridx = 0; c.gridy = 0; c.weightx = 0.3;
+        c.gridx = 0;
+        c.gridy = 0;
+        c.weightx = 0.3;
         panel.add(new JLabel("Patient *"), c);
-        c.gridx = 1; c.weightx = 0.7;
+        c.gridx = 1;
+        c.weightx = 0.7;
         JComboBox<String> patientCombo = new JComboBox<>();
         DataStore.patients.forEach((id, p) -> patientCombo.addItem(id + " - " + p.name));
         panel.add(patientCombo, c);
 
-        c.gridx = 0; c.gridy = 1; c.weightx = 0.3;
+        c.gridx = 0;
+        c.gridy = 1;
+        c.weightx = 0.3;
         panel.add(new JLabel("Bill Description"), c);
-        c.gridx = 1; c.weightx = 0.7;
+        c.gridx = 1;
+        c.weightx = 0.7;
         JTextArea descArea = new JTextArea(4, 30);
         descArea.setLineWrap(true);
         descArea.setWrapStyleWord(true);
         panel.add(new JScrollPane(descArea), c);
 
-        c.gridx = 0; c.gridy = 2; c.weightx = 0.3;
+        c.gridx = 0;
+        c.gridy = 2;
+        c.weightx = 0.3;
         panel.add(new JLabel("Initial Amount"), c);
-        c.gridx = 1; c.weightx = 0.7;
+        c.gridx = 1;
+        c.weightx = 0.7;
         JTextField amountField = new JTextField();
         amountField.setText("0.00");
         panel.add(amountField, c);
@@ -164,7 +179,8 @@ public class BillingPanel extends JPanel {
 
         saveBtn.addActionListener(e -> {
             if (patientCombo.getSelectedIndex() < 0) {
-                JOptionPane.showMessageDialog(dialog, "Please select a patient", "Validation Error", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Please select a patient", "Validation Error",
+                        JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
@@ -173,7 +189,8 @@ public class BillingPanel extends JPanel {
 
             java.util.List<String> result = BillingService.create(patientId, amount);
             if (result.get(0).startsWith("Bill created")) {
-                JOptionPane.showMessageDialog(dialog, "Bill created successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Bill created successfully!", "Success",
+                        JOptionPane.INFORMATION_MESSAGE);
                 dialog.dispose();
                 refresh();
             } else {
@@ -189,7 +206,8 @@ public class BillingPanel extends JPanel {
     private void addItemDialog() {
         int row = billTable.getSelectedRow();
         if (row < 0) {
-            JOptionPane.showMessageDialog(this, "Please select a bill to add items", "Selection Required", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please select a bill to add items", "Selection Required",
+                    JOptionPane.WARNING_MESSAGE);
             return;
         }
 
@@ -205,21 +223,30 @@ public class BillingPanel extends JPanel {
         c.insets = new Insets(8, 8, 8, 8);
         c.fill = GridBagConstraints.HORIZONTAL;
 
-        c.gridx = 0; c.gridy = 0; c.weightx = 0.3;
+        c.gridx = 0;
+        c.gridy = 0;
+        c.weightx = 0.3;
         panel.add(new JLabel("Item Description *"), c);
-        c.gridx = 1; c.weightx = 0.7;
+        c.gridx = 1;
+        c.weightx = 0.7;
         JTextField descField = new JTextField();
         panel.add(descField, c);
 
-        c.gridx = 0; c.gridy = 1; c.weightx = 0.3;
+        c.gridx = 0;
+        c.gridy = 1;
+        c.weightx = 0.3;
         panel.add(new JLabel("Quantity"), c);
-        c.gridx = 1; c.weightx = 0.7;
+        c.gridx = 1;
+        c.weightx = 0.7;
         JSpinner quantitySpinner = new JSpinner(new SpinnerNumberModel(1, 1, 1000, 1));
         panel.add(quantitySpinner, c);
 
-        c.gridx = 0; c.gridy = 2; c.weightx = 0.3;
+        c.gridx = 0;
+        c.gridy = 2;
+        c.weightx = 0.3;
         panel.add(new JLabel("Unit Price *"), c);
-        c.gridx = 1; c.weightx = 0.7;
+        c.gridx = 1;
+        c.weightx = 0.7;
         JTextField priceField = new JTextField();
         panel.add(priceField, c);
 
@@ -234,7 +261,8 @@ public class BillingPanel extends JPanel {
 
         saveBtn.addActionListener(e -> {
             if (descField.getText().trim().isEmpty() || priceField.getText().trim().isEmpty()) {
-                JOptionPane.showMessageDialog(dialog, "Description and Price are required", "Validation Error", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Description and Price are required", "Validation Error",
+                        JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
@@ -243,7 +271,8 @@ public class BillingPanel extends JPanel {
 
             java.util.List<String> result = BillingService.addItem(billId, description, price);
             if (result.get(0).startsWith("Item added")) {
-                JOptionPane.showMessageDialog(dialog, "Item added successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Item added successfully!", "Success",
+                        JOptionPane.INFORMATION_MESSAGE);
                 dialog.dispose();
                 refresh();
             } else {
@@ -259,14 +288,16 @@ public class BillingPanel extends JPanel {
     private void payBillDialog() {
         int row = billTable.getSelectedRow();
         if (row < 0) {
-            JOptionPane.showMessageDialog(this, "Please select a bill to pay", "Selection Required", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please select a bill to pay", "Selection Required",
+                    JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         String billId = billModel.getValueAt(row, 0).toString();
         Bill bill = DataStore.bills.get(billId);
 
-        if (bill == null) return;
+        if (bill == null)
+            return;
 
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Process Payment", true);
         dialog.setSize(400, 300);
@@ -278,29 +309,42 @@ public class BillingPanel extends JPanel {
         c.insets = new Insets(8, 8, 8, 8);
         c.fill = GridBagConstraints.HORIZONTAL;
 
-        c.gridx = 0; c.gridy = 0; c.weightx = 0.3;
+        c.gridx = 0;
+        c.gridy = 0;
+        c.weightx = 0.3;
         panel.add(new JLabel("Bill ID"), c);
-        c.gridx = 1; c.weightx = 0.7;
+        c.gridx = 1;
+        c.weightx = 0.7;
         JTextField billIdDisplay = new JTextField(billId);
         billIdDisplay.setEditable(false);
         panel.add(billIdDisplay, c);
 
-        c.gridx = 0; c.gridy = 1; c.weightx = 0.3;
+        c.gridx = 0;
+        c.gridy = 1;
+        c.weightx = 0.3;
         panel.add(new JLabel("Total Amount"), c);
-        c.gridx = 1; c.weightx = 0.7;
+        c.gridx = 1;
+        c.weightx = 0.7;
         JTextField totalDisplay = new JTextField(String.format(Locale.US, "%.2f", bill.total));
         totalDisplay.setEditable(false);
         panel.add(totalDisplay, c);
 
-        c.gridx = 0; c.gridy = 2; c.weightx = 0.3;
+        c.gridx = 0;
+        c.gridy = 2;
+        c.weightx = 0.3;
         panel.add(new JLabel("Payment Method *"), c);
-        c.gridx = 1; c.weightx = 0.7;
-        JComboBox<String> methodCombo = new JComboBox<>(new String[]{"CASH", "CARD", "INSURANCE", "CHECK", "BANK_TRANSFER"});
+        c.gridx = 1;
+        c.weightx = 0.7;
+        JComboBox<String> methodCombo = new JComboBox<>(
+                new String[] { "CASH", "CARD", "INSURANCE", "CHECK", "BANK_TRANSFER" });
         panel.add(methodCombo, c);
 
-        c.gridx = 0; c.gridy = 3; c.weightx = 0.3;
+        c.gridx = 0;
+        c.gridy = 3;
+        c.weightx = 0.3;
         panel.add(new JLabel("Receipt/Reference"), c);
-        c.gridx = 1; c.weightx = 0.7;
+        c.gridx = 1;
+        c.weightx = 0.7;
         JTextField refField = new JTextField();
         panel.add(refField, c);
 
@@ -315,8 +359,9 @@ public class BillingPanel extends JPanel {
 
         payBtn.addActionListener(e -> {
             java.util.List<String> result = BillingService.pay(billId, methodCombo.getSelectedItem().toString());
-            if (result.get(0).startsWith("Bill paid")) {
-                JOptionPane.showMessageDialog(dialog, "Payment processed successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+            if (result.get(0).startsWith("Payment successful")) {
+                JOptionPane.showMessageDialog(dialog, "Payment processed successfully!", "Success",
+                        JOptionPane.INFORMATION_MESSAGE);
                 dialog.dispose();
                 refresh();
             } else {
@@ -332,22 +377,26 @@ public class BillingPanel extends JPanel {
     private void viewBillItems() {
         int row = billTable.getSelectedRow();
         if (row < 0) {
-            JOptionPane.showMessageDialog(this, "Please select a bill to view items", "Selection Required", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please select a bill to view items", "Selection Required",
+                    JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         String billId = billModel.getValueAt(row, 0).toString();
         Bill bill = DataStore.bills.get(billId);
 
-        if (bill == null) return;
+        if (bill == null)
+            return;
 
-        DefaultTableModel itemModel = new DefaultTableModel(new String[]{"Item Description", "Amount"}, 0) {
-            public boolean isCellEditable(int r, int c) { return false; }
+        DefaultTableModel itemModel = new DefaultTableModel(new String[] { "Item Description", "Amount" }, 0) {
+            public boolean isCellEditable(int r, int c) {
+                return false;
+            }
         };
 
         double total = 0;
         for (BillItem item : bill.items) {
-            itemModel.addRow(new Object[]{item.description, String.format(Locale.US, "%.2f", item.price)});
+            itemModel.addRow(new Object[] { item.description, String.format(Locale.US, "%.2f", item.price) });
             total += item.price;
         }
 
@@ -363,20 +412,23 @@ public class BillingPanel extends JPanel {
     }
 
     private void showPaymentHistory() {
-        DefaultTableModel historyModel = new DefaultTableModel(new String[]{"Bill ID", "Patient", "Amount", "Method", "Paid Date"}, 0) {
-            public boolean isCellEditable(int r, int c) { return false; }
+        DefaultTableModel historyModel = new DefaultTableModel(
+                new String[] { "Bill ID", "Patient", "Amount", "Method", "Paid Date" }, 0) {
+            public boolean isCellEditable(int r, int c) {
+                return false;
+            }
         };
 
         double totalPaid = 0;
         for (Bill bill : DataStore.bills.values()) {
             if (bill.paid) {
                 Patient patient = DataStore.patients.get(bill.patientId);
-                historyModel.addRow(new Object[]{
-                    bill.id,
-                    patient != null ? patient.name : bill.patientId,
-                    String.format(Locale.US, "%.2f", bill.total),
-                    bill.paymentMethod != null ? bill.paymentMethod : "N/A",
-                    bill.updatedAt
+                historyModel.addRow(new Object[] {
+                        bill.id,
+                        patient != null ? patient.name : bill.patientId,
+                        String.format(Locale.US, "%.2f", bill.total),
+                        bill.paymentMethod != null ? bill.paymentMethod : "N/A",
+                        bill.updatedAt
                 });
                 totalPaid += bill.total;
             }
@@ -397,17 +449,23 @@ public class BillingPanel extends JPanel {
     private void deleteBill() {
         int row = billTable.getSelectedRow();
         if (row < 0) {
-            JOptionPane.showMessageDialog(this, "Please select a bill to delete", "Selection Required", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please select a bill to delete", "Selection Required",
+                    JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         String billId = billModel.getValueAt(row, 0).toString();
-        int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete this bill?", "Confirm Deletion", JOptionPane.YES_NO_OPTION);
+        int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete this bill?",
+                "Confirm Deletion", JOptionPane.YES_NO_OPTION);
 
         if (confirm == JOptionPane.YES_OPTION) {
             DataStore.bills.remove(billId);
-            try { BackupUtil.saveToDefault(); } catch (Exception ex) { }
-            JOptionPane.showMessageDialog(this, "Bill deleted successfully", "Success", JOptionPane.INFORMATION_MESSAGE);
+            try {
+                BackupUtil.saveToDefault();
+            } catch (Exception ex) {
+            }
+            JOptionPane.showMessageDialog(this, "Bill deleted successfully", "Success",
+                    JOptionPane.INFORMATION_MESSAGE);
             refresh();
         }
     }
@@ -424,14 +482,14 @@ public class BillingPanel extends JPanel {
             String patientName = patient != null ? patient.name : bill.patientId;
             String status = bill.paid ? "PAID" : "UNPAID";
 
-            billModel.addRow(new Object[]{
-                bill.id,
-                patientName,
-                String.format(Locale.US, "%.2f", bill.total),
-                bill.items.size(),
-                status,
-                bill.paymentMethod != null ? bill.paymentMethod : "-",
-                bill.updatedAt
+            billModel.addRow(new Object[] {
+                    bill.id,
+                    patientName,
+                    String.format(Locale.US, "%.2f", bill.total),
+                    bill.items.size(),
+                    status,
+                    bill.paymentMethod != null ? bill.paymentMethod : "-",
+                    bill.updatedAt
             });
 
             totalAmount += bill.total;
@@ -443,7 +501,7 @@ public class BillingPanel extends JPanel {
         }
 
         String stats = String.format(Locale.US, "Total Bills: %d | Paid: $%.2f | Unpaid: $%.2f | Due Amount: $%.2f",
-            DataStore.bills.size(), paidAmount, unpaidAmount, unpaidAmount);
+                DataStore.bills.size(), paidAmount, unpaidAmount, unpaidAmount);
         statsLabel.setText(stats);
     }
 }

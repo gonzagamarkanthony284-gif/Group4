@@ -47,6 +47,7 @@ public class PatientsPanel extends JPanel {
     private JCheckBox assignedCheck, notAssignedCheck, recentCheck, showInactiveCheck;
     private IconButton transferBtn; // Store for enabling/disabling based on patient status
     private JComboBox<String> statusCombo;
+    private JButton statusApply; // Store for enabling/disabling based on patient locked status
     // Date range filter components
     private JComboBox<String> dateRangeFilter;
     private JTextField customStartDate, customEndDate;
@@ -105,7 +106,7 @@ public class PatientsPanel extends JPanel {
         statusValueLabel = new JLabel();
         styleBadge(statusValueLabel, "OUTPATIENT");
         statusCombo = new JComboBox<>(new String[] { "OUTPATIENT", "INPATIENT", "EMERGENCY", "DISCHARGED" });
-        JButton statusApply = new JButton("Update");
+        statusApply = new JButton("Update");
         JButton statusHistoryBtn = new JButton("History");
         statusTop.add(statusValueLabel);
         statusTop.add(statusCombo);
@@ -976,6 +977,18 @@ public class PatientsPanel extends JPanel {
         pronounOther.addActionListener(e -> pronounOtherText.setEnabled(pronounOther.isSelected()));
         row++;
 
+        // Patient Type Selection (INPATIENT or EMERGENCY)
+        gbc.gridx = 0;
+        gbc.gridy = row;
+        gbc.weightx = 0.3;
+        patientInfoSection.add(new JLabel("Patient Type *:"), gbc);
+        JComboBox<String> patientTypeCombo = new JComboBox<>(new String[] { "INPATIENT", "EMERGENCY" });
+        patientTypeCombo.setSelectedIndex(-1); // No default selection - user must choose
+        gbc.gridx = 1;
+        gbc.weightx = 0.7;
+        patientInfoSection.add(patientTypeCombo, gbc);
+        row++;
+
         // Address and City
         gbc.gridx = 0;
         gbc.gridy = row;
@@ -1278,51 +1291,6 @@ public class PatientsPanel extends JPanel {
         mainPanel.add(pharmacySection);
         mainPanel.add(Box.createVerticalStrut(15));
 
-        // ==================== CONSENT & SIGNATURE SECTION ====================
-        JPanel consentSection = new JPanel(new GridBagLayout());
-        consentSection.setBorder(BorderFactory.createTitledBorder(
-                BorderFactory.createLineBorder(Color.BLACK, 2),
-                "Consent & Signature",
-                TitledBorder.LEFT,
-                TitledBorder.TOP,
-                new Font("Arial", Font.BOLD, 14)));
-        consentSection.setBackground(Color.WHITE);
-
-        row = 0;
-
-        // Consent statement
-        gbc.gridx = 0;
-        gbc.gridy = row;
-        gbc.gridwidth = 4;
-        gbc.weightx = 1.0;
-        JLabel consentLabel = new JLabel(
-                "I confirm that the information provided is accurate to the best of my knowledge.");
-        consentLabel.setFont(new Font("Arial", Font.ITALIC, 12));
-        consentSection.add(consentLabel, gbc);
-        gbc.gridwidth = 1;
-        row++;
-
-        // Signature and Date
-        gbc.gridx = 0;
-        gbc.gridy = row;
-        gbc.weightx = 0.2;
-        consentSection.add(new JLabel("Signature:"), gbc);
-        JTextField signatureField = new JTextField(30);
-        gbc.gridx = 1;
-        gbc.weightx = 0.6;
-        consentSection.add(signatureField, gbc);
-
-        gbc.gridx = 2;
-        gbc.weightx = 0.2;
-        consentSection.add(new JLabel("Date:"), gbc);
-        JTextField dateField = new JTextField(15);
-        dateField.setText(LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("MM/dd/yyyy")));
-        gbc.gridx = 3;
-        gbc.weightx = 0.2;
-        consentSection.add(dateField, gbc);
-
-        mainPanel.add(consentSection);
-
         // Scroll pane for main panel
         JScrollPane scrollPane = new JScrollPane(mainPanel);
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
@@ -1406,8 +1374,10 @@ public class PatientsPanel extends JPanel {
                 return;
             }
 
-            if (signatureField.getText().trim().isEmpty()) {
-                JOptionPane.showMessageDialog(dialog, "Signature is required", "Validation Error",
+            // Validate patient type selection
+            if (patientTypeCombo.getSelectedIndex() == -1) {
+                JOptionPane.showMessageDialog(dialog, "Patient Type must be selected (INPATIENT or EMERGENCY)",
+                        "Validation Error",
                         JOptionPane.ERROR_MESSAGE);
                 return;
             }
@@ -1441,8 +1411,8 @@ public class PatientsPanel extends JPanel {
             else if (relOther.isSelected())
                 insuranceRel = relOtherText.getText().trim().isEmpty() ? "Other" : relOtherText.getText().trim();
 
-            // Determine patient type (default to OUTPATIENT for intake form)
-            String patientType = "OUTPATIENT";
+            // Get patient type from user selection (no default)
+            String patientType = (String) patientTypeCombo.getSelectedItem();
 
             // Call service with backward-compatible parameters
             List<String> result = PatientService.add(
@@ -1491,10 +1461,6 @@ public class PatientsPanel extends JPanel {
                                 " | Phone: " + pharmacyPhone.getText().trim() +
                                 " | Address: " + pharmacyAddress.getText().trim());
                     }
-
-                    // Store consent signature
-                    newPatient.progressNotes.add("Consent signed by: " + signatureField.getText().trim() +
-                            " on " + dateField.getText().trim());
 
                     // Store preferred pronouns
                     StringBuilder pronouns = new StringBuilder();
@@ -1565,6 +1531,33 @@ public class PatientsPanel extends JPanel {
         String id = String.valueOf(t.getValueAt(i, 0));
         Patient p = DataStore.patients.get(id);
 
+        // CRITICAL: Check if record is locked before allowing edits
+        if (p.isOutpatientPermanent) {
+            PatientStatus currentStatus = PatientStatusService.getStatus(p.id);
+            int response = JOptionPane.showConfirmDialog(
+                    this,
+                    "<html><body style='width: 400px;'>"
+                            + "<h3>⚠️ Record Locked</h3>"
+                            + "<p>This patient record is locked because the patient has been marked as <b>"
+                            + currentStatus + "</b>.</p>"
+                            + "<p>Once a patient is discharged or marked as outpatient, their record cannot be modified.</p>"
+                            + "<br>"
+                            + "<p><b>If this patient is returning to the hospital:</b></p>"
+                            + "<p>Please create a <b>NEW patient record</b> instead of editing this one.</p>"
+                            + "<br>"
+                            + "<p>Would you like to create a new patient record now?</p>"
+                            + "</body></html>",
+                    "Cannot Edit Locked Record",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE);
+
+            if (response == JOptionPane.YES_OPTION) {
+                // Pre-fill new patient form with previous patient's basic info for convenience
+                createNewPatientFromPrevious(p);
+            }
+            return;
+        }
+
         // Create all form fields with existing patient data
         JTextField name = new JTextField(p.name);
         JTextField age = new JTextField(String.valueOf(p.age));
@@ -1580,18 +1573,19 @@ public class PatientsPanel extends JPanel {
         gender.setSelectedItem(gsel);
         JTextField contact = new JTextField(p.contact);
         JTextField address = new JTextField(p.address);
-        JComboBox<String> patientTypeCombo = new JComboBox<>(new String[] { "INPATIENT", "OUTPATIENT" });
-        patientTypeCombo.setSelectedItem(
-                p.patientType == null || p.patientType.trim().isEmpty() ? "OUTPATIENT" : p.patientType);
-
-        // CRITICAL RULE: If patient is marked as permanent OUTPATIENT, disable type
-        // editing
-        if (p.isOutpatientPermanent) {
-            patientTypeCombo.setEnabled(false);
-            // Add tooltip to explain why it's disabled
-            patientTypeCombo.setToolTipText(
-                    "Patient type is locked as OUTPATIENT (permanent). Cannot be changed to INPATIENT.");
+        JComboBox<String> patientTypeCombo = new JComboBox<>(new String[] { "INPATIENT", "EMERGENCY", "OUTPATIENT" });
+        // Only select if patient type is explicitly set, otherwise leave blank
+        if (p.patientType != null && !p.patientType.trim().isEmpty()) {
+            patientTypeCombo.setSelectedItem(p.patientType);
+        } else {
+            patientTypeCombo.setSelectedIndex(-1); // No default selection
         }
+
+        // CRITICAL RULE: Patient Type is LOCKED after creation and CANNOT be changed
+        // This applies to ALL patient types: INPATIENT, EMERGENCY, and OUTPATIENT
+        patientTypeCombo.setEnabled(false);
+        patientTypeCombo.setToolTipText(
+                "Patient Type is locked after creation and cannot be changed. Current type: " + p.patientType);
 
         JTextArea allergies = new JTextArea(p.allergies, 3, 40);
         allergies.setLineWrap(true);
@@ -1830,70 +1824,279 @@ public class PatientsPanel extends JPanel {
         identityPanel.add(new JSeparator(), ic);
         ic.gridwidth = 1;
 
-        JLabel nameLbl = new JLabel("Name *");
-        nameLbl.setDisplayedMnemonic('N');
-        nameLbl.setLabelFor(name);
+        JLabel nameLbl = new JLabel("Name");
         nameLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
         name.getAccessibleContext().setAccessibleName("Name");
         ic.gridy = iy;
         ic.gridx = 0;
-        ic.weightx = 0.25;
+        ic.weightx = 0.3;
         identityPanel.add(nameLbl, ic);
         ic.gridx = 1;
-        ic.weightx = 0.25;
+        ic.weightx = 0.3;
         identityPanel.add(name, ic);
-        JLabel ageLbl = new JLabel("Age *");
-        ageLbl.setDisplayedMnemonic('A');
-        ageLbl.setLabelFor(age);
-        ageLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
-        age.getAccessibleContext().setAccessibleName("Age");
+
+        JLabel dobLbl = new JLabel("DOB (MM/DD/YYYY):");
+        dobLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
+        birthday.getAccessibleContext().setAccessibleName("Date of Birth");
         ic.gridx = 2;
-        ic.weightx = 0.25;
-        identityPanel.add(ageLbl, ic);
+        ic.weightx = 0.2;
+        identityPanel.add(dobLbl, ic);
         ic.gridx = 3;
-        ic.weightx = 0.25;
-        identityPanel.add(age, ic);
+        ic.weightx = 0.2;
+        identityPanel.add(birthday, ic);
         iy++;
 
-        JLabel genderLbl = new JLabel("Gender *");
-        genderLbl.setDisplayedMnemonic('G');
-        genderLbl.setLabelFor(gender);
+        // Gender row with checkboxes
+        JLabel genderLbl = new JLabel("Gender:");
         genderLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
-        gender.getAccessibleContext().setAccessibleName("Gender");
         ic.gridy = iy;
         ic.gridx = 0;
-        ic.weightx = 0.25;
+        ic.weightx = 0.3;
         identityPanel.add(genderLbl, ic);
+
+        JPanel genderPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
+        genderPanel.setBackground(new Color(250, 250, 250));
+        JCheckBox cbMale = new JCheckBox("Male");
+        JCheckBox cbFemale = new JCheckBox("Female");
+        JCheckBox cbOther = new JCheckBox("Other");
+        if (p.gender == Gender.Male)
+            cbMale.setSelected(true);
+        else if (p.gender == Gender.Female)
+            cbFemale.setSelected(true);
+        else if (p.gender == Gender.LGBTQ_PLUS)
+            cbOther.setSelected(true);
+        genderPanel.add(cbMale);
+        genderPanel.add(cbFemale);
+        genderPanel.add(cbOther);
+        JTextField otherGenderText = new JTextField(5);
+        genderPanel.add(otherGenderText);
         ic.gridx = 1;
-        ic.weightx = 0.25;
-        identityPanel.add(gender, ic);
-        JLabel contactLbl = new JLabel("Contact *");
-        contactLbl.setDisplayedMnemonic('C');
-        contactLbl.setLabelFor(contact);
-        contactLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
-        contact.getAccessibleContext().setAccessibleName("Contact");
-        ic.gridx = 2;
-        ic.weightx = 0.25;
-        identityPanel.add(contactLbl, ic);
-        ic.gridx = 3;
-        ic.weightx = 0.25;
-        identityPanel.add(contact, ic);
+        ic.gridwidth = 3;
+        ic.weightx = 0.7;
+        identityPanel.add(genderPanel, ic);
+        ic.gridwidth = 1;
         iy++;
 
-        JLabel addressLbl = new JLabel("Address");
+        // Preferred Pronouns row
+        JLabel pronounsLbl = new JLabel("Preferred Pronouns:");
+        pronounsLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
+        ic.gridy = iy;
+        ic.gridx = 0;
+        ic.weightx = 0.3;
+        identityPanel.add(pronounsLbl, ic);
+
+        JPanel pronounsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
+        pronounsPanel.setBackground(new Color(250, 250, 250));
+        JCheckBox cbHeHim = new JCheckBox("He/Him");
+        JCheckBox cbSheHer = new JCheckBox("She/Her");
+        JCheckBox cbTheyThem = new JCheckBox("They/Them");
+        JCheckBox cbOtherPronouns = new JCheckBox("Other");
+        if (p.preferredPronouns != null) {
+            if (p.preferredPronouns.contains("He/Him"))
+                cbHeHim.setSelected(true);
+            if (p.preferredPronouns.contains("She/Her"))
+                cbSheHer.setSelected(true);
+            if (p.preferredPronouns.contains("They/Them"))
+                cbTheyThem.setSelected(true);
+            if (p.preferredPronouns.contains("Other"))
+                cbOtherPronouns.setSelected(true);
+        }
+        pronounsPanel.add(cbHeHim);
+        pronounsPanel.add(cbSheHer);
+        pronounsPanel.add(cbTheyThem);
+        pronounsPanel.add(cbOtherPronouns);
+        JTextField otherPronounsText = new JTextField(8);
+        pronounsPanel.add(otherPronounsText);
+        ic.gridx = 1;
+        ic.gridwidth = 3;
+        ic.weightx = 0.7;
+        identityPanel.add(pronounsPanel, ic);
+        ic.gridwidth = 1;
+        iy++;
+
+        // Address row
+        JLabel addressLbl = new JLabel("Address:");
         addressLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
-        ic.gridy = iy++;
+        ic.gridy = iy;
         ic.gridx = 0;
         ic.gridwidth = 4;
         ic.weightx = 1.0;
         identityPanel.add(addressLbl, ic);
-        ic.gridwidth = 1;
-        ic.gridy = iy++;
+        ic.gridy = ++iy;
         ic.gridx = 0;
         ic.gridwidth = 4;
         ic.weightx = 1.0;
         identityPanel.add(address, ic);
-        // Add registration type and incident details (if needed)
+        ic.gridwidth = 1;
+        iy++;
+
+        // City and State/Zip row
+        JLabel cityLbl = new JLabel("City");
+        cityLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
+        JTextField cityField = new JTextField(p.city);
+        ic.gridy = iy;
+        ic.gridx = 0;
+        ic.weightx = 0.2;
+        identityPanel.add(cityLbl, ic);
+        ic.gridx = 1;
+        ic.weightx = 0.3;
+        identityPanel.add(cityField, ic);
+
+        JLabel stateLbl = new JLabel("State:");
+        stateLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
+        JTextField stateField = new JTextField(p.state);
+        ic.gridx = 2;
+        ic.weightx = 0.2;
+        identityPanel.add(stateLbl, ic);
+        ic.gridx = 3;
+        ic.weightx = 0.2;
+        identityPanel.add(stateField, ic);
+        iy++;
+
+        // Phone and Email row
+        JLabel phoneLbl = new JLabel("Phone:");
+        phoneLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
+        JTextField phoneField = new JTextField(p.contact);
+        ic.gridy = iy;
+        ic.gridx = 0;
+        ic.weightx = 0.25;
+        identityPanel.add(phoneLbl, ic);
+        ic.gridx = 1;
+        ic.weightx = 0.25;
+        identityPanel.add(phoneField, ic);
+
+        JLabel emailLbl = new JLabel("Email:");
+        emailLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
+        JTextField emailField = new JTextField(p.email);
+        ic.gridx = 2;
+        ic.weightx = 0.25;
+        identityPanel.add(emailLbl, ic);
+        ic.gridx = 3;
+        ic.weightx = 0.25;
+        identityPanel.add(emailField, ic);
+        iy++;
+
+        // Preferred Contact Method
+        JLabel contactMethodLbl = new JLabel("Preferred Contact Method:");
+        contactMethodLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
+        ic.gridy = iy;
+        ic.gridx = 0;
+        ic.weightx = 0.3;
+        identityPanel.add(contactMethodLbl, ic);
+
+        JPanel contactMethodPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        contactMethodPanel.setBackground(new Color(250, 250, 250));
+        JCheckBox cbPhone = new JCheckBox("Phone");
+        JCheckBox cbEmail = new JCheckBox("Email");
+        JCheckBox cbText = new JCheckBox("Text");
+        if (p.preferredContactMethod != null) {
+            if (p.preferredContactMethod.contains("Phone"))
+                cbPhone.setSelected(true);
+            if (p.preferredContactMethod.contains("Email"))
+                cbEmail.setSelected(true);
+            if (p.preferredContactMethod.contains("Text"))
+                cbText.setSelected(true);
+        }
+        contactMethodPanel.add(cbPhone);
+        contactMethodPanel.add(cbEmail);
+        contactMethodPanel.add(cbText);
+        ic.gridx = 1;
+        ic.gridwidth = 3;
+        ic.weightx = 0.7;
+        identityPanel.add(contactMethodPanel, ic);
+        ic.gridwidth = 1;
+        iy++;
+
+        // Primary Language
+        JLabel langLbl = new JLabel("Primary language:");
+        langLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
+        JTextField langField = new JTextField(p.primaryLanguage);
+        ic.gridy = iy;
+        ic.gridx = 0;
+        ic.weightx = 0.25;
+        identityPanel.add(langLbl, ic);
+        ic.gridx = 1;
+        ic.weightx = 0.25;
+        identityPanel.add(langField, ic);
+
+        JLabel interpreterLbl = new JLabel("Interpreter needed:");
+        interpreterLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
+        JPanel interpreterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        interpreterPanel.setBackground(new Color(250, 250, 250));
+        JRadioButton rbYes = new JRadioButton("Yes");
+        JRadioButton rbNo = new JRadioButton("No", true);
+        if (p.interpreterNeeded != null && p.interpreterNeeded.equals("Yes"))
+            rbYes.setSelected(true);
+        ButtonGroup bgInterpreter = new ButtonGroup();
+        bgInterpreter.add(rbYes);
+        bgInterpreter.add(rbNo);
+        interpreterPanel.add(rbYes);
+        interpreterPanel.add(rbNo);
+        ic.gridx = 2;
+        ic.weightx = 0.2;
+        identityPanel.add(interpreterLbl, ic);
+        ic.gridx = 3;
+        ic.weightx = 0.2;
+        identityPanel.add(interpreterPanel, ic);
+        iy++;
+
+        // Emergency Contact
+        JLabel emergContactLbl = new JLabel("Emergency Contact Name:");
+        emergContactLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
+        JTextField emergContactNameField = new JTextField(p.emergencyContactName);
+        ic.gridy = iy;
+        ic.gridx = 0;
+        ic.weightx = 0.4;
+        identityPanel.add(emergContactLbl, ic);
+        ic.gridx = 1;
+        ic.gridwidth = 3;
+        ic.weightx = 0.6;
+        identityPanel.add(emergContactNameField, ic);
+        ic.gridwidth = 1;
+        iy++;
+
+        // Emergency Contact Phone
+        JLabel emergPhoneLbl = new JLabel("Phone:");
+        emergPhoneLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
+        JTextField emergPhoneField = new JTextField(p.emergencyContactPhone);
+        ic.gridy = iy;
+        ic.gridx = 0;
+        ic.weightx = 0.25;
+        identityPanel.add(emergPhoneLbl, ic);
+        ic.gridx = 1;
+        ic.weightx = 0.25;
+        identityPanel.add(emergPhoneField, ic);
+
+        // Zip code field
+        JLabel zipLbl = new JLabel("Zip:");
+        zipLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
+        JTextField zipField = new JTextField(p.zip);
+        ic.gridx = 2;
+        ic.weightx = 0.25;
+        identityPanel.add(zipLbl, ic);
+        ic.gridx = 3;
+        ic.weightx = 0.25;
+        identityPanel.add(zipField, ic);
+        iy++;
+
+        // Relationship to Patient
+        JLabel relationLbl = new JLabel("Relationship to Patient");
+        relationLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
+        JTextField relationField = new JTextField(p.emergencyContactRelationship);
+        ic.gridy = iy;
+        ic.gridx = 0;
+        ic.gridwidth = 4;
+        ic.weightx = 1.0;
+        identityPanel.add(relationLbl, ic);
+        ic.gridy = ++iy;
+        ic.gridx = 0;
+        ic.gridwidth = 4;
+        ic.weightx = 1.0;
+        identityPanel.add(relationField, ic);
+        ic.gridwidth = 1;
+        iy++;
+
+        // Registration type and incident details (if needed)
         JLabel regLbl = new JLabel("Type of Registration / Mode of Arrival (Locked)");
         regLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
         ic.gridy = iy;
@@ -1904,31 +2107,6 @@ public class PatientsPanel extends JPanel {
         ic.weightx = 0.5;
         identityPanel.add(regCombo, ic);
         iy++;
-
-        // Add first diagnosis display (read-only)
-        JLabel firstDiagnosisLbl = new JLabel("First Diagnosis (Locked)");
-        firstDiagnosisLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
-        String firstDiagnosisText = (p.diagnoses != null && !p.diagnoses.isEmpty())
-                ? p.diagnoses.get(0)
-                : "(No diagnosis recorded)";
-        JLabel firstDiagnosisValue = new JLabel(firstDiagnosisText);
-        firstDiagnosisValue.setFont(Theme.APP_FONT.deriveFont(Font.PLAIN, 10f));
-        firstDiagnosisValue.setForeground(new Color(64, 64, 64));
-        firstDiagnosisValue.setToolTipText("First diagnosis cannot be changed after creation");
-        ic.gridy = iy;
-        ic.gridx = 0;
-        ic.weightx = 0.5;
-        identityPanel.add(firstDiagnosisLbl, ic);
-        ic.gridx = 1;
-        ic.weightx = 0.5;
-        identityPanel.add(firstDiagnosisValue, ic);
-        iy++;
-
-        ic.gridy = iy++;
-        ic.gridx = 0;
-        ic.gridwidth = 4;
-        identityPanel.add(incidentPanel, ic);
-        ic.gridwidth = 1;
         identityPanel.setBorder(new javax.swing.border.EmptyBorder(10, 10, 10, 10));
         identityPanel.setBackground(new Color(250, 250, 250));
 
@@ -2091,15 +2269,15 @@ public class PatientsPanel extends JPanel {
         iny++;
         policyHolder.setVisible(hasInsurance);
 
-        JLabel dobLbl = new JLabel("Holder DOB (YYYY-MM-DD)");
-        dobLbl.setDisplayedMnemonic('D');
-        dobLbl.setLabelFor(policyDob);
-        dobLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
-        dobLbl.setVisible(hasInsurance);
+        JLabel policyHolderDobLbl = new JLabel("Holder DOB (YYYY-MM-DD)");
+        policyHolderDobLbl.setDisplayedMnemonic('D');
+        policyHolderDobLbl.setLabelFor(policyDob);
+        policyHolderDobLbl.setFont(Theme.APP_FONT.deriveFont(Font.BOLD, 10f));
+        policyHolderDobLbl.setVisible(hasInsurance);
         inc.gridy = iny;
         inc.gridx = 0;
         inc.weightx = 0.4;
-        insuranceCard.add(dobLbl, inc);
+        insuranceCard.add(policyHolderDobLbl, inc);
         inc.gridx = 1;
         inc.weightx = 0.6;
         insuranceCard.add(policyDob, inc);
@@ -2780,6 +2958,47 @@ public class PatientsPanel extends JPanel {
                             fileType, category, description, uploadedBy);
 
                     showOut(result);
+
+                    // Update patient's file path and status if upload was successful
+                    if (result.get(0).contains("successfully")) {
+                        Patient patient = DataStore.patients.get(patientId);
+                        if (patient != null) {
+                            // Update file path and status based on category
+                            switch (category) {
+                                case "Profile Photo":
+                                case "Photo":
+                                    patient.photoPath = selectedFile.getAbsolutePath();
+                                    break;
+                                case "X-Ray":
+                                    patient.xrayFilePath = selectedFile.getAbsolutePath();
+                                    patient.xrayStatus = "Uploaded";
+                                    break;
+                                case "Stool Test":
+                                    patient.stoolFilePath = selectedFile.getAbsolutePath();
+                                    patient.stoolStatus = "Uploaded";
+                                    break;
+                                case "Urine Test":
+                                    patient.urineFilePath = selectedFile.getAbsolutePath();
+                                    patient.urineStatus = "Uploaded";
+                                    break;
+                                case "Blood Test":
+                                    patient.bloodFilePath = selectedFile.getAbsolutePath();
+                                    patient.bloodStatus = "Uploaded";
+                                    break;
+                                default:
+                                    // For other categories, just store the attachment path
+                                    break;
+                            }
+
+                            // Save the changes to backup
+                            try {
+                                hpms.util.BackupUtil.saveToDefault();
+                            } catch (Exception ex) {
+                                ex.printStackTrace();
+                            }
+                        }
+                    }
+
                     folderPanel.refreshAttachments();
                     uploadDialog.dispose();
                 });
@@ -2896,6 +3115,27 @@ public class PatientsPanel extends JPanel {
 
         // Get patient status and update UI controls based on status
         PatientStatus status = PatientStatusService.getStatus(p.id);
+
+        // CRITICAL: Disable status updates for locked records (OUTPATIENT/DISCHARGED)
+        boolean isRecordLocked = p.isOutpatientPermanent || status == PatientStatus.OUTPATIENT
+                || status == PatientStatus.DISCHARGED;
+        if (isRecordLocked) {
+            statusCombo.setEnabled(false);
+            if (statusApply != null) {
+                statusApply.setEnabled(false);
+                statusApply.setToolTipText("Status cannot be changed - record is locked");
+            }
+            statusValueLabel.setText("Status: " + status + " [LOCKED]");
+            statusValueLabel.setForeground(new Color(100, 100, 100));
+        } else {
+            statusCombo.setEnabled(true);
+            if (statusApply != null) {
+                statusApply.setEnabled(true);
+                statusApply.setToolTipText("Update patient status");
+            }
+            statusValueLabel.setText("Status: " + status);
+            statusValueLabel.setForeground(Theme.TEXT);
+        }
 
         // Disable transfer button for outpatients - enforce outpatient rules in UI
         if (status == PatientStatus.OUTPATIENT) {
@@ -3846,8 +4086,17 @@ public class PatientsPanel extends JPanel {
             hpms.model.PatientStatus st = PatientStatusService.getStatus(p.id);
             String reg = (p.registrationType == null || p.registrationType.trim().isEmpty()) ? "Walk-in Patient"
                     : p.registrationType;
+
+            // Add lock indicator for OUTPATIENT/DISCHARGED records
+            String statusDisplay = (st == null ? "" : st.name());
+            boolean isLocked = p.isOutpatientPermanent || st == PatientStatus.OUTPATIENT
+                    || st == PatientStatus.DISCHARGED;
+            if (isLocked) {
+                statusDisplay = "🔒 " + statusDisplay; // Lock emoji indicator
+            }
+
             patientsModel.addRow(new Object[] { p.id, p.name, p.age, p.gender, (r == null ? "Not Assigned" : r.id),
-                    (st == null ? "" : st.name()), reg });
+                    statusDisplay, reg });
         }
         if (pageInfo != null)
             pageInfo.setText("Page " + currentPage + " of " + totalPages + " (" + total + " items)");
@@ -3996,5 +4245,43 @@ public class PatientsPanel extends JPanel {
         }
 
         dialog.setVisible(true);
+    }
+
+    /**
+     * Helper method to create a new patient record pre-filled with data from a
+     * previous (locked) patient record.
+     * Used when a previously discharged patient returns to the hospital.
+     */
+    private void createNewPatientFromPrevious(Patient previousPatient) {
+        JOptionPane.showMessageDialog(
+                this,
+                "<html><body style='width: 400px;'>"
+                        + "<h3>Creating New Patient Record</h3>"
+                        + "<p>The system will open the new patient form with some basic information pre-filled from the previous record.</p>"
+                        + "<p><b>Important:</b> This is a NEW patient record with a NEW patient ID. The previous record remains locked and unchanged.</p>"
+                        + "<p>Please verify and update all information as needed.</p>"
+                        + "</body></html>",
+                "New Patient Record",
+                JOptionPane.INFORMATION_MESSAGE);
+
+        // Open the new patient dialog (assuming you have such a dialog)
+        // For now, just show a message suggesting to use the Add Patient button
+        // In a full implementation, you would call your add patient dialog here
+        // and pre-fill it with: previousPatient.name, age, contact, allergies, etc.
+
+        JOptionPane.showMessageDialog(
+                this,
+                "<html><body style='width: 400px;'>"
+                        + "<p>Please use the <b>'Add Patient'</b> button to create a new record.</p>"
+                        + "<p>Previous patient details:</p>"
+                        + "<ul>"
+                        + "<li>Name: " + previousPatient.name + "</li>"
+                        + "<li>Contact: " + previousPatient.contact + "</li>"
+                        + "<li>Age: " + previousPatient.age + "</li>"
+                        + "</ul>"
+                        + "<p>You can use these details to quickly fill the new patient form.</p>"
+                        + "</body></html>",
+                "Previous Patient Information",
+                JOptionPane.INFORMATION_MESSAGE);
     }
 }
