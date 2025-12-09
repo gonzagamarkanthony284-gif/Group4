@@ -378,7 +378,7 @@ public class PatientsPanel extends JPanel {
         tableTopRight.setOpaque(false);
         JButton add = new JButton("Add");
         JButton edit = new JButton("Edit");
-        JButton del = new JButton("Delete");
+        JButton del = new JButton("Deac");
         tableTopRight.add(add);
         tableTopRight.add(edit);
         tableTopRight.add(del);
