@@ -275,6 +275,7 @@ public class MainGUI extends JFrame {
         });
     }
 
+    @SuppressWarnings("unused")
     private JButton btn(String text, Color bg, Color fg) {
         JButton b = new JButton(text);
         b.setBackground(bg);
@@ -286,6 +287,7 @@ public class MainGUI extends JFrame {
         return b;
     }
 
+    @SuppressWarnings("unused")
     private SidebarButton menuBtn(String name) {
         SidebarButton b = new SidebarButton(name);
         b.addActionListener(e -> onMenu(b, name));
@@ -350,6 +352,7 @@ public class MainGUI extends JFrame {
         ((CardLayout) content.getLayout()).show(content, name);
     }
 
+    @SuppressWarnings("unused")
     private JPanel buildDashboard() {
         JPanel p = new JPanel(new GridLayout(2, 2, 12, 12));
         p.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
@@ -365,6 +368,7 @@ public class MainGUI extends JFrame {
         return p;
     }
 
+    @SuppressWarnings("unused")
     private JPanel buildAppointments() {
         JPanel p = new JPanel(new BorderLayout());
         JTable t = new JTable(apptModel);
@@ -381,6 +385,7 @@ public class MainGUI extends JFrame {
         return p;
     }
 
+    @SuppressWarnings("unused")
     private JPanel buildBilling() {
         JPanel p = new JPanel(new BorderLayout());
         JTable t = new JTable(billModel);
@@ -402,6 +407,7 @@ public class MainGUI extends JFrame {
         return p;
     }
 
+    @SuppressWarnings("unused")
     private JPanel buildRooms() {
         JPanel p = new JPanel(new BorderLayout());
         JTable t = new JTable(roomModel);
@@ -416,6 +422,7 @@ public class MainGUI extends JFrame {
         return p;
     }
 
+    @SuppressWarnings("unused")
     private JPanel buildStaff() {
         JPanel p = new JPanel(new BorderLayout());
         JTable t = new JTable(staffModel);
@@ -443,6 +450,7 @@ public class MainGUI extends JFrame {
         return p;
     }
 
+    @SuppressWarnings("unused")
     private JPanel buildReports() {
         JPanel p = new JPanel(new BorderLayout());
         JTable t = new JTable(logModel);
@@ -553,6 +561,7 @@ public class MainGUI extends JFrame {
         }
     }
 
+    @SuppressWarnings("unused")
     private void editPatient(JTable t) {
         // Delegate to the PatientsPanel edit dialog whenever it exists (ensures full
         // form consistency)
@@ -590,6 +599,7 @@ public class MainGUI extends JFrame {
         }
     }
 
+    @SuppressWarnings("unused")
     private void deletePatient(JTable t) {
         int i = t.getSelectedRow();
         if (i < 0)
@@ -605,11 +615,12 @@ public class MainGUI extends JFrame {
                 refreshTables();
             }
         } else {
-            showOut(PatientService.delete(id));
+            showOut(PatientService.deactivate(id));
             refreshTables();
         }
     }
 
+    @SuppressWarnings("unused")
     private void searchPatient() {
         String id = JOptionPane.showInputDialog(this, "Patient ID");
         if (id != null)
@@ -864,6 +875,7 @@ public class MainGUI extends JFrame {
         JOptionPane.showMessageDialog(this, String.join("\n", out));
     }
 
+    @SuppressWarnings("unused")
     private Room findRoomForPatient(String pid) {
         for (Room r : DataStore.rooms.values())
             if (pid.equals(r.occupantPatientId))
@@ -871,6 +883,7 @@ public class MainGUI extends JFrame {
         return null;
     }
 
+    @SuppressWarnings("unused")
     private Appointment latestAppointmentForPatient(String pid) {
         return DataStore.appointments.values().stream().filter(a -> a.patientId.equals(pid))
                 .max(Comparator.comparing(a -> a.dateTime)).orElse(null);
@@ -900,6 +913,7 @@ public class MainGUI extends JFrame {
         return c;
     }
 
+    @SuppressWarnings("unused")
     private JPanel buildAdministration() {
         JPanel p = new JPanel(new BorderLayout());
         DefaultTableModel usersModel = new DefaultTableModel(new String[] { "Username", "Role" }, 0) {
@@ -965,6 +979,7 @@ public class MainGUI extends JFrame {
         return p;
     }
 
+    @SuppressWarnings("unused")
     private JPanel buildSettings() {
         JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT));
         p.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));

@@ -1,6 +1,5 @@
 package hpms.ui.panels;
 
-import hpms.auth.AuthService;
 import hpms.model.*;
 import hpms.service.*;
 import hpms.ui.staff.UnifiedRegistrationForm;

@@ -1,10 +1,7 @@
 package hpms.test;
 
-import hpms.model.Patient;
 import hpms.service.PatientService;
 import hpms.auth.AuthService;
-import hpms.util.DataStore;
-import java.time.LocalDateTime;
 
 public class PatientPasswordTest {
     public static void main(String[] args) throws Exception {

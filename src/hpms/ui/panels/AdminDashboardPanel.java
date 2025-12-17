@@ -5,12 +5,10 @@ import hpms.util.DataStore;
 import hpms.ui.components.RoundedCard;
 import hpms.ui.components.SectionHeader;
 import hpms.ui.components.Theme;
-import hpms.auth.AuthService;
 
 import javax.swing.*;
 import java.awt.*;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 public class AdminDashboardPanel extends JPanel {
     // Store references to value labels for dynamic updates

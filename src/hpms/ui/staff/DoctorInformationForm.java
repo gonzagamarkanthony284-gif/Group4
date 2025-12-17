@@ -5,7 +5,6 @@ import javax.swing.border.*;
 import hpms.ui.components.Theme;
 import hpms.service.StaffService;
 import java.awt.*;
-import java.util.*;
 
 /**
  * Comprehensive Doctor Information Form matching the reference image exactly.
@@ -15,10 +14,9 @@ import java.util.*;
 public class DoctorInformationForm extends JFrame {
     // Section 1: Doctor Information
     private JTextField fullNameField, dobField;
-    private JComboBox<String> genderCombo, pronounsCombo;
+    private JComboBox<String> genderCombo;
     private JTextField specializationField, licenseNumberField, hospitalAffiliationField;
     private JTextField phoneNumberField, emailAddressField, officeAddressField;
-    private JComboBox<String> preferredContactCombo;
 
     // Section 2: Professional Credentials
     private JTextField medicalSchoolField, yearGraduatedField, residencyField, fellowshipField;
@@ -36,7 +34,6 @@ public class DoctorInformationForm extends JFrame {
     // Section 4: Educational Licenses & Registration
     private JTextField medicalEducationField, boardExamField, ptrField, registrationIDField;
     private JComboBox<String> specialtyBoardCombo;
-    private JCheckBox pogsCheck, pnaCheck, pcsCheck, otherBoardCheck;
     private JTextField otherBoardField;
 
     // Section 5: Work Experience
@@ -49,8 +46,7 @@ public class DoctorInformationForm extends JFrame {
     private JCheckBox proceduresCheckAlt2, specializationCheck;
 
     // Section 8: Professional Ancriry
-    private JCheckBox pmaAssociationCheck, specialtySocietiesCheck;
-    private JTextField specialtySocietiesField, membershipField;
+    private JTextField membershipField;
 
     // Section 9: Character References
     private JTextField reference1Field, reference2Field, optionalRef3Field;

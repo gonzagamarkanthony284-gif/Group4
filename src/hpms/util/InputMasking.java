@@ -30,8 +30,7 @@ public class InputMasking {
 
     private static class PhoneMaskFilter extends DocumentFilter {
         private static final int MAX_LEN = 10;
-        private final JTextField tf;
-        PhoneMaskFilter(JTextField tf) { this.tf = tf; }
+        PhoneMaskFilter(JTextField tf) { }
 
         @Override
         public void insertString(FilterBypass fb, int offset, String string, AttributeSet attr) throws BadLocationException {

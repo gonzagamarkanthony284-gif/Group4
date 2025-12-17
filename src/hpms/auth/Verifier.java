@@ -1,6 +1,5 @@
 package hpms.auth;
 
-import hpms.model.*;
 import hpms.service.*;
 import hpms.util.*;
 

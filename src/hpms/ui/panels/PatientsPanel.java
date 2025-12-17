@@ -3965,6 +3965,7 @@ public class PatientsPanel extends JPanel {
     }
 
     // Find patients that are likely duplicates based on name or contact
+    @SuppressWarnings("unused")
     private java.util.List<Patient> findSimilarPatients(String name, String contact) {
         java.util.List<Patient> matches = new java.util.ArrayList<>();
         if ((name == null || name.trim().isEmpty()) && (contact == null || contact.trim().isEmpty()))

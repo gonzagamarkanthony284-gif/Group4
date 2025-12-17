@@ -6,8 +6,6 @@ import hpms.util.*;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
-import java.time.format.DateTimeFormatter;
-import java.time.LocalDateTime;
 import java.util.Locale;
 import java.awt.image.BufferedImage;
 

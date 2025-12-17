@@ -9,12 +9,10 @@ import java.io.File;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import hpms.model.Patient;
 import hpms.model.StaffNote;
-import java.time.LocalDateTime;
 import hpms.service.AppointmentService;
 import hpms.service.CommunicationService;
 import hpms.service.PatientService;
 import hpms.ui.dialogs.PatientDetailsDialog;
-import java.util.Locale;
 
 /**
  * Doctor Patients Panel - view assigned patients

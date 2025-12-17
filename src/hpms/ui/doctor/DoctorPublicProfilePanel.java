@@ -4,11 +4,7 @@ import hpms.model.Staff;
 import hpms.service.DoctorService;
 import hpms.util.ImageUtils;
 import javax.swing.*;
-import javax.swing.border.*;
 import java.awt.*;
-import java.awt.event.*;
-import java.net.URI;
-import javax.swing.event.HyperlinkEvent;
 
 /**
  * Public view of a doctor's profile that can be accessed by patients and other users.

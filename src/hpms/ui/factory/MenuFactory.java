@@ -1,12 +1,8 @@
 package hpms.ui.factory;
 
 import hpms.auth.AuthSession;
-import hpms.auth.RoleGuard;
-import hpms.model.UserRole;
 import javax.swing.*;
 import java.awt.*;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Factory for creating role-based menus and navigation

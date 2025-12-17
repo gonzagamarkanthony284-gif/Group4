@@ -2,7 +2,6 @@ package hpms.auth;
 
 import hpms.model.UserRole;
 import hpms.util.DBConnection;
-import hpms.util.DataStore;
 import hpms.util.LogManager;
 import hpms.util.Validators;
 

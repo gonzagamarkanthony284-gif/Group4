@@ -495,8 +495,6 @@ public class ReportsPanel extends JPanel {
     public void refresh() {
         // Refresh all report tabs when panel is shown
         if (tabbedPane != null) {
-            int selectedIndex = tabbedPane.getSelectedIndex();
-
             // Refresh billing tab
             if (billingModel != null) {
                 billingModel.setRowCount(0);
