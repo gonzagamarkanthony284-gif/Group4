@@ -44,12 +44,12 @@ public class SettingsPanel extends JPanel {
         formPanel.add(new JLabel("Accept payment in cash"), c);
 
         c.gridx = 0; c.gridy = 2; c.weightx = 0.1;
-        JCheckBox cardCB = new JCheckBox("Card", DataStore.allowedPaymentMethods.contains(PaymentMethod.CARD));
+        JCheckBox cardCB = new JCheckBox("Credit Card", DataStore.allowedPaymentMethods.contains(PaymentMethod.CARD));
         formPanel.add(cardCB, c);
-
+        
         c.gridx = 1; c.weightx = 0.9;
-        formPanel.add(new JLabel("Accept credit and debit cards"), c);
-
+        formPanel.add(new JLabel("Accept credit/debit card payments"), c);
+        
         c.gridx = 0; c.gridy = 3; c.weightx = 0.1;
         JCheckBox insuranceCB = new JCheckBox("Insurance", DataStore.allowedPaymentMethods.contains(PaymentMethod.INSURANCE));
         formPanel.add(insuranceCB, c);

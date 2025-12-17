@@ -2,11 +2,17 @@ package hpms.ui.staff;
 
 import hpms.auth.AuthService;
 import hpms.model.Staff;
+import hpms.service.FileService;
+import hpms.service.StaffService;
 import hpms.util.DataStore;
+import hpms.util.ImageUtils;
 import javax.swing.*;
-import javax.swing.border.LineBorder;
+import javax.swing.border.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.io.File;
+import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 
 /**
@@ -20,6 +26,8 @@ public class StaffProfileModal extends JDialog {
     private JTextField specialtyField, yearsExperienceField, yearsOfWorkField;
     private JComboBox<String> statusCombo;
     private JLabel staffIdLabel, roleLabel, deptLabel, joinedLabel;
+    private JLabel photoLabel;
+    private JButton uploadPhotoBtn;
 
     public StaffProfileModal(Window owner, Staff staff) {
         super((Frame) (owner instanceof Frame ? owner : SwingUtilities.getWindowAncestor((Component) owner)),
@@ -112,10 +120,72 @@ public class StaffProfileModal extends JDialog {
         rightPanel.add(editBtn);
         rightPanel.add(closeBtn);
 
+        // Center - Photo section
+        JPanel photoPanel = createPhotoPanel();
+
         header.add(leftPanel, BorderLayout.WEST);
+        header.add(photoPanel, BorderLayout.CENTER);
         header.add(rightPanel, BorderLayout.EAST);
 
         return header;
+    }
+
+    private JPanel createPhotoPanel() {
+        JPanel panel = new JPanel(new BorderLayout(8, 8));
+        panel.setOpaque(false);
+
+        // Photo container with fixed size
+        JPanel photoContainer = new JPanel(new BorderLayout()) {
+            @Override
+            public Dimension getPreferredSize() {
+                return new Dimension(120, 120);
+            }
+        };
+        photoContainer.setBackground(Color.WHITE);
+        photoContainer.setBorder(BorderFactory.createLineBorder(new Color(200, 210, 220)));
+
+        photoLabel = new JLabel();
+        photoLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        photoLabel.setVerticalAlignment(SwingConstants.CENTER);
+        photoLabel.setText("No Photo");
+        photoLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        photoLabel.setForeground(new Color(150, 150, 150));
+        photoLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        photoLabel.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                choosePhoto();
+            }
+        });
+
+        // Load the current photo if exists
+        if (staff != null && staff.photoPath != null && !staff.photoPath.trim().isEmpty()) {
+            updatePhotoLabelFromPath(staff.photoPath);
+        } else {
+            updatePhotoLabelFromPath(null);
+        }
+        
+        // Upload button
+        uploadPhotoBtn = new JButton("Change Photo");
+        uploadPhotoBtn.setFont(new Font("Arial", Font.PLAIN, 10));
+        uploadPhotoBtn.setBackground(new Color(47, 111, 237));
+        uploadPhotoBtn.setForeground(Color.WHITE);
+        uploadPhotoBtn.setFocusPainted(false);
+        uploadPhotoBtn.setBorderPainted(false);
+        uploadPhotoBtn.setOpaque(true);
+        uploadPhotoBtn.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
+        uploadPhotoBtn.addActionListener(e -> choosePhoto());
+        
+        // Add components to panel
+        photoContainer.add(photoLabel, BorderLayout.CENTER);
+        panel.add(photoContainer, BorderLayout.CENTER);
+        
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 4));
+        buttonPanel.setOpaque(false);
+        buttonPanel.add(uploadPhotoBtn);
+        panel.add(buttonPanel, BorderLayout.SOUTH);
+
+        return panel;
     }
 
     private JPanel createDetailsTab() {
@@ -449,6 +519,98 @@ public class StaffProfileModal extends JDialog {
 
         schedulePanel.add(tablePanel, BorderLayout.CENTER);
         return schedulePanel;
+    }
+
+    private void choosePhoto() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Select Profile Picture");
+        chooser.setFileFilter(new FileNameExtensionFilter("Image Files", "jpg", "jpeg", "png", "gif"));
+        
+        int result = chooser.showOpenDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = chooser.getSelectedFile();
+            if (selectedFile != null) {
+                // Show loading indicator
+                setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+                
+                // Use a worker thread for file operations
+                new SwingWorker<Void, Void>() {
+                    @Override
+                    protected Void doInBackground() throws Exception {
+                        try {
+                            // Save the photo and get the new path
+                            String savedFilePath = FileService.saveProfilePicture(
+                                selectedFile, 
+                                staff.id
+                            );
+                            
+                            // Update staff record
+                            staff.photoPath = savedFilePath;
+                            DataStore.staff.put(staff.id, staff);
+
+                            // Persist to DB
+                            try {
+                                StaffService.updateStaff(staff);
+                            } catch (Exception ignored) {
+                            }
+                            
+                            // Update the UI on the EDT
+                            SwingUtilities.invokeLater(() -> {
+                                updatePhotoLabelFromPath(savedFilePath);
+                                JOptionPane.showMessageDialog(
+                                    StaffProfileModal.this,
+                                    "Profile picture updated successfully!",
+                                    "Success",
+                                    JOptionPane.INFORMATION_MESSAGE
+                                );
+                            });
+                            
+                        } catch (IOException ex) {
+                            SwingUtilities.invokeLater(() -> {
+                                JOptionPane.showMessageDialog(
+                                    StaffProfileModal.this,
+                                    "Error uploading profile picture: " + ex.getMessage(),
+                                    "Upload Error",
+                                    JOptionPane.ERROR_MESSAGE
+                                );
+                            });
+                        }
+                        return null;
+                    }
+                    
+                    @Override
+                    protected void done() {
+                        setCursor(Cursor.getDefaultCursor());
+                    }
+                }.execute();
+            }
+        }
+    }
+
+    private void updatePhotoLabelFromPath(String path) {
+        try {
+            if (path != null && !path.trim().isEmpty()) {
+                File file = new File(path);
+                if (file.exists()) {
+                    // Create a rounded image icon
+                    ImageIcon roundedIcon = ImageUtils.createRoundImageIcon(path, 100, 100);
+                    if (roundedIcon != null) {
+                        photoLabel.setIcon(roundedIcon);
+                        photoLabel.setText("");
+                        photoLabel.setToolTipText("Click to change photo");
+                        return;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        
+        // Set default icon if no image or error
+        Icon icon = UIManager.getIcon("FileView.directoryIcon");
+        photoLabel.setIcon(icon);
+        photoLabel.setText("No Photo");
+        photoLabel.setToolTipText("Click to change photo");
     }
 
     // Reset code removed

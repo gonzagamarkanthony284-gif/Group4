@@ -2,11 +2,16 @@ package hpms.ui.doctor;
 
 import hpms.auth.AuthSession;
 import hpms.model.Staff;
+import hpms.service.FileService;
+import hpms.service.StaffService;
 import hpms.util.DataStore;
+import hpms.util.ImageUtils;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
+import java.awt.event.*;
 import java.io.File;
+import java.io.IOException;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 /**
@@ -20,6 +25,11 @@ public class DoctorProfilePanel extends JPanel {
     private JTextField licenseField;
     private JTextField yearsField;
     private JTextArea bioArea;
+    private JTextArea certificationsArea;
+    private JTextArea educationArea;
+    private JTextArea expertiseArea;
+    private JTextArea skillsArea;
+    private JTextArea competenciesArea;
     private boolean isEditing = false;
     private JButton editBtn;
     private JButton saveBtn;
@@ -71,33 +81,64 @@ public class DoctorProfilePanel extends JPanel {
     }
 
     private JPanel createPhotoPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
+        JPanel panel = new JPanel(new BorderLayout(8, 8));
         panel.setBackground(new Color(248, 249, 250));
         panel.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(new Color(226, 232, 240)),
-                BorderFactory.createEmptyBorder(12, 12, 12, 12)));
+                BorderFactory.createEmptyBorder(16, 16, 16, 16)));
 
-        photoLabel = new JLabel();
+        // Photo container with fixed size
+        JPanel photoContainer = new JPanel(new BorderLayout()) {
+            @Override
+            public Dimension getPreferredSize() {
+                return new Dimension(200, 250);
+            }
+        };
+        photoContainer.setBackground(Color.WHITE);
+        photoContainer.setBorder(BorderFactory.createLineBorder(new Color(200, 210, 220)));
+
+        // Photo label with centered icon and text
+        photoLabel = new JLabel("", JLabel.CENTER);
+        photoLabel.setVerticalTextPosition(JLabel.BOTTOM);
+        photoLabel.setHorizontalTextPosition(JLabel.CENTER);
+        photoLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        photoLabel.setForeground(new Color(107, 114, 128));
+        
+        // Make photo label clickable
+        photoLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        photoLabel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                choosePhoto();
+            }
+        });
+
+        // Load the current photo if exists
         if (doctorStaff != null && doctorStaff.photoPath != null && !doctorStaff.photoPath.trim().isEmpty()) {
             updatePhotoLabelFromPath(doctorStaff.photoPath);
         } else {
-            photoLabel.setIcon(UIManager.getIcon("FileView.directoryIcon"));
+            updatePhotoLabelFromPath(null);
         }
-        photoLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        photoLabel.setFont(new Font("Arial", Font.PLAIN, 14));
-        photoLabel.setForeground(new Color(107, 114, 128));
-        panel.add(photoLabel, BorderLayout.CENTER);
-
-        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 8));
-        bottom.setOpaque(false);
-        uploadPhotoBtn = new JButton("Upload Photo");
+        
+        // Upload button
+        uploadPhotoBtn = new JButton("Change Photo");
         uploadPhotoBtn.setFont(new Font("Arial", Font.PLAIN, 11));
         uploadPhotoBtn.setBackground(new Color(47, 111, 237));
         uploadPhotoBtn.setForeground(Color.WHITE);
         uploadPhotoBtn.setFocusPainted(false);
+        uploadPhotoBtn.setBorderPainted(false);
+        uploadPhotoBtn.setOpaque(true);
+        uploadPhotoBtn.setBorder(BorderFactory.createEmptyBorder(6, 12, 6, 12));
         uploadPhotoBtn.addActionListener(e -> choosePhoto());
-        bottom.add(uploadPhotoBtn);
-        panel.add(bottom, BorderLayout.SOUTH);
+        
+        // Add components to panel
+        photoContainer.add(photoLabel, BorderLayout.CENTER);
+        panel.add(photoContainer, BorderLayout.CENTER);
+        
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 8));
+        buttonPanel.setOpaque(false);
+        buttonPanel.add(uploadPhotoBtn);
+        panel.add(buttonPanel, BorderLayout.SOUTH);
 
         return panel;
     }
@@ -178,6 +219,76 @@ public class DoctorProfilePanel extends JPanel {
         bioArea.setText(doctorStaff != null && doctorStaff.bio != null ? doctorStaff.bio : "");
         panel.add(new JScrollPane(bioArea), gbc);
 
+        // Certifications
+        gbc.gridy = row++;
+        JLabel certificationsLabel = new JLabel("Certifications:");
+        certificationsLabel.setFont(new Font("Arial", Font.BOLD, 11));
+        panel.add(certificationsLabel, gbc);
+        gbc.gridy = row++;
+        certificationsArea = new JTextArea(3, 30);
+        certificationsArea.setFont(new Font("Arial", Font.PLAIN, 11));
+        certificationsArea.setLineWrap(true);
+        certificationsArea.setWrapStyleWord(true);
+        certificationsArea.setEditable(false);
+        certificationsArea.setText(doctorStaff != null && doctorStaff.certifications != null ? doctorStaff.certifications : "");
+        panel.add(new JScrollPane(certificationsArea), gbc);
+
+        // Education
+        gbc.gridy = row++;
+        JLabel educationLabel = new JLabel("Education:");
+        educationLabel.setFont(new Font("Arial", Font.BOLD, 11));
+        panel.add(educationLabel, gbc);
+        gbc.gridy = row++;
+        educationArea = new JTextArea(3, 30);
+        educationArea.setFont(new Font("Arial", Font.PLAIN, 11));
+        educationArea.setLineWrap(true);
+        educationArea.setWrapStyleWord(true);
+        educationArea.setEditable(false);
+        educationArea.setText(doctorStaff != null && doctorStaff.education != null ? doctorStaff.education : "");
+        panel.add(new JScrollPane(educationArea), gbc);
+
+        // Expertise
+        gbc.gridy = row++;
+        JLabel expertiseLabel = new JLabel("Work Expertise:");
+        expertiseLabel.setFont(new Font("Arial", Font.BOLD, 11));
+        panel.add(expertiseLabel, gbc);
+        gbc.gridy = row++;
+        expertiseArea = new JTextArea(3, 30);
+        expertiseArea.setFont(new Font("Arial", Font.PLAIN, 11));
+        expertiseArea.setLineWrap(true);
+        expertiseArea.setWrapStyleWord(true);
+        expertiseArea.setEditable(false);
+        expertiseArea.setText(doctorStaff != null && doctorStaff.expertise != null ? doctorStaff.expertise : "");
+        panel.add(new JScrollPane(expertiseArea), gbc);
+
+        // Skills
+        gbc.gridy = row++;
+        JLabel skillsLabel = new JLabel("Skills:");
+        skillsLabel.setFont(new Font("Arial", Font.BOLD, 11));
+        panel.add(skillsLabel, gbc);
+        gbc.gridy = row++;
+        skillsArea = new JTextArea(3, 30);
+        skillsArea.setFont(new Font("Arial", Font.PLAIN, 11));
+        skillsArea.setLineWrap(true);
+        skillsArea.setWrapStyleWord(true);
+        skillsArea.setEditable(false);
+        skillsArea.setText(doctorStaff != null && doctorStaff.skills != null ? doctorStaff.skills : "");
+        panel.add(new JScrollPane(skillsArea), gbc);
+
+        // Competencies
+        gbc.gridy = row++;
+        JLabel competenciesLabel = new JLabel("Competencies:");
+        competenciesLabel.setFont(new Font("Arial", Font.BOLD, 11));
+        panel.add(competenciesLabel, gbc);
+        gbc.gridy = row++;
+        competenciesArea = new JTextArea(3, 30);
+        competenciesArea.setFont(new Font("Arial", Font.PLAIN, 11));
+        competenciesArea.setLineWrap(true);
+        competenciesArea.setWrapStyleWord(true);
+        competenciesArea.setEditable(false);
+        competenciesArea.setText(doctorStaff != null && doctorStaff.competencies != null ? doctorStaff.competencies : "");
+        panel.add(new JScrollPane(competenciesArea), gbc);
+
         return panel;
     }
 
@@ -189,6 +300,11 @@ public class DoctorProfilePanel extends JPanel {
         licenseField.setEditable(isEditing);
         yearsField.setEditable(isEditing);
         bioArea.setEditable(isEditing);
+        certificationsArea.setEditable(isEditing);
+        educationArea.setEditable(isEditing);
+        expertiseArea.setEditable(isEditing);
+        skillsArea.setEditable(isEditing);
+        competenciesArea.setEditable(isEditing);
         saveBtn.setVisible(isEditing);
     }
 
@@ -204,6 +320,17 @@ public class DoctorProfilePanel extends JPanel {
                 JOptionPane.showMessageDialog(this, "Invalid years value", "Error", JOptionPane.ERROR_MESSAGE);
             }
             doctorStaff.bio = bioArea.getText();
+            doctorStaff.certifications = certificationsArea.getText();
+            doctorStaff.education = educationArea.getText();
+            doctorStaff.expertise = expertiseArea.getText();
+            doctorStaff.skills = skillsArea.getText();
+            doctorStaff.competencies = competenciesArea.getText();
+
+            // Persist to DB
+            try {
+                StaffService.updateStaff(doctorStaff);
+            } catch (Exception ignored) {
+            }
         }
         isEditing = false;
         saveBtn.setVisible(false);
@@ -216,26 +343,97 @@ public class DoctorProfilePanel extends JPanel {
 
     private void choosePhoto() {
         JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Select Profile Picture");
         chooser.setFileFilter(new FileNameExtensionFilter("Image Files", "jpg", "jpeg", "png", "gif"));
+        
         int result = chooser.showOpenDialog(this);
         if (result == JFileChooser.APPROVE_OPTION) {
-            File f = chooser.getSelectedFile();
-            if (f != null) {
-                String path = f.getAbsolutePath();
-                if (doctorStaff != null) {
-                    doctorStaff.photoPath = path;
-                }
-                updatePhotoLabelFromPath(path);
+            File selectedFile = chooser.getSelectedFile();
+            if (selectedFile != null) {
+                // Show loading indicator
+                setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+                
+                // Use a worker thread for file operations
+                new SwingWorker<Void, Void>() {
+                    @Override
+                    protected Void doInBackground() throws Exception {
+                        try {
+                            // Save the photo and get the new path
+                            String savedFilePath = FileService.saveProfilePicture(
+                                selectedFile, 
+                                doctorStaff.id
+                            );
+                            
+                            // Update the staff record
+                            doctorStaff.photoPath = savedFilePath;
+                            DataStore.staff.put(doctorStaff.id, doctorStaff);
+
+                            // Persist to DB
+                            try {
+                                StaffService.updateStaff(doctorStaff);
+                            } catch (Exception ignored) {
+                            }
+                            
+                            // Update the UI on the EDT
+                            SwingUtilities.invokeLater(() -> {
+                                updatePhotoLabelFromPath(savedFilePath);
+                                JOptionPane.showMessageDialog(
+                                    DoctorProfilePanel.this,
+                                    "Profile picture updated successfully!",
+                                    "Success",
+                                    JOptionPane.INFORMATION_MESSAGE
+                                );
+                            });
+                            
+                        } catch (IOException ex) {
+                            SwingUtilities.invokeLater(() -> {
+                                JOptionPane.showMessageDialog(
+                                    DoctorProfilePanel.this,
+                                    "Error uploading profile picture: " + ex.getMessage(),
+                                    "Upload Error",
+                                    JOptionPane.ERROR_MESSAGE
+                                );
+                            });
+                        }
+                        return null;
+                    }
+                    
+                    @Override
+                    protected void done() {
+                        // Restore cursor
+                        setCursor(Cursor.getDefaultCursor());
+                    }
+                }.execute();
             }
         }
     }
 
     private void updatePhotoLabelFromPath(String path) {
-        ImageIcon icon = new ImageIcon(path);
-        int w = 160;
-        int h = 160;
-        Image scaled = icon.getImage().getScaledInstance(w, h, Image.SCALE_SMOOTH);
-        photoLabel.setIcon(new ImageIcon(scaled));
+        try {
+            if (path != null && !path.trim().isEmpty()) {
+                File file = new File(path);
+                if (file.exists()) {
+                    // Create a rounded image icon
+                    ImageIcon roundedIcon = ImageUtils.createRoundImageIcon(path, 160, 160);
+                    if (roundedIcon != null) {
+                        photoLabel.setIcon(roundedIcon);
+                        photoLabel.setText("");
+                        photoLabel.setToolTipText("Click to change photo");
+                        return;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        
+        // Set default icon if no image or error
+        Icon icon = UIManager.getIcon("FileView.directoryIcon");
+        ImageIcon defaultIcon = ImageUtils.resizeImage(
+            icon instanceof ImageIcon ? (ImageIcon) icon : new ImageIcon(), 80, 80);
+        photoLabel.setIcon(defaultIcon);
+        photoLabel.setText("No Photo");
+        photoLabel.setToolTipText("Click to upload photo");
     }
 
 }

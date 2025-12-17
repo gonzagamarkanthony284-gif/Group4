@@ -197,35 +197,7 @@ public class BackupUtil {
                     .append("\"}");
         }
         sb.append(']');
-        // medicines
-        sb.append(',').append("\"medicines\":[");
-        i = 0;
-        for (Medicine m : DataStore.medicines.values()) {
-            if (i++ > 0)
-                sb.append(',');
-            sb.append('{')
-                    .append("\"id\":\"").append(m.id).append("\",")
-                    .append("\"name\":\"").append(m.name == null ? "" : m.name.replace("\"", "\\\"")).append("\",")
-                    .append("\"genericName\":\"")
-                    .append(m.genericName == null ? "" : m.genericName.replace("\"", "\\\"")).append("\",")
-                    .append("\"manufacturer\":\"")
-                    .append(m.manufacturer == null ? "" : m.manufacturer.replace("\"", "\\\"")).append("\",")
-                    .append("\"price\":").append(String.format(Locale.US, "%.2f", m.price)).append(',')
-                    .append("\"stockQuantity\":").append(m.stockQuantity).append(',')
-                    .append("\"minimumStockLevel\":").append(m.minimumStockLevel).append(',')
-                    .append("\"dosageForm\":\"").append(m.dosageForm == null ? "" : m.dosageForm.replace("\"", "\\\""))
-                    .append("\",")
-                    .append("\"strength\":\"").append(m.strength == null ? "" : m.strength.replace("\"", "\\\""))
-                    .append("\",")
-                    .append("\"expireDate\":\"").append(m.expireDate == null ? "" : m.expireDate.replace("\"", "\\\""))
-                    .append("\",")
-                    .append("\"category\":\"").append(m.category == null ? "" : m.category.replace("\"", "\\\""))
-                    .append("\",")
-                    .append("\"description\":\"")
-                    .append(m.description == null ? "" : m.description.replace("\"", "\\\"")).append("\"");
-            sb.append('}');
-        }
-        sb.append(']');
+        // Medicine functionality removed
         sb.append(',');
         sb.append("\"users\":[");
         int u = 0;
@@ -252,7 +224,7 @@ public class BackupUtil {
         DataStore.rooms.clear();
         DataStore.appointments.clear();
         DataStore.bills.clear();
-        DataStore.medicines.clear();
+        // Medicine functionality removed
         DataStore.users.clear();
         String sec = json;
         String patients = between(sec, "\"patients\":[", "]");
@@ -425,42 +397,7 @@ public class BackupUtil {
                 b.paymentMethod = Validators.empty(method) ? null : PaymentMethod.valueOf(method);
                 DataStore.bills.put(id, b);
             }
-        String meds = between(sec, "\"medicines\":[", "]");
-        if (meds != null && !meds.trim().isEmpty())
-            for (String o : splitObjs(meds)) {
-                Map<String, String> m = parseObj(o);
-                String id = m.get("id");
-                String name = m.get("name");
-                String genericName = m.get("genericName");
-                double price = 0.0;
-                try {
-                    String ps = m.get("price");
-                    if (ps != null && !ps.isEmpty())
-                        price = Double.parseDouble(ps);
-                } catch (Exception ex) {
-                }
-                Medicine med = new Medicine(id, name == null ? "" : name, genericName == null ? "" : genericName,
-                        price);
-                try {
-                    String sq = m.get("stockQuantity");
-                    if (sq != null)
-                        med.stockQuantity = Integer.parseInt(sq);
-                } catch (Exception ex) {
-                }
-                try {
-                    String ms = m.get("minimumStockLevel");
-                    if (ms != null)
-                        med.minimumStockLevel = Integer.parseInt(ms);
-                } catch (Exception ex) {
-                }
-                med.manufacturer = m.get("manufacturer");
-                med.dosageForm = m.get("dosageForm");
-                med.strength = m.get("strength");
-                med.expireDate = m.get("expireDate");
-                med.category = m.get("category");
-                med.description = m.get("description");
-                DataStore.medicines.put(id, med);
-            }
+        // Medicine functionality removed
         String users = between(sec, "\"users\":[", "]");
         if (users != null && !users.trim().isEmpty())
             for (String o : splitObjs(users)) {
@@ -556,21 +493,12 @@ public class BackupUtil {
     }
 
     public static boolean saveToDefault() {
-        try {
-            return saveToFile(DEFAULT_PATH());
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    public static boolean loadFromDefault() {
-        try {
-            java.nio.file.Path p = DEFAULT_PATH();
-            if (!java.nio.file.Files.exists(p))
-                return false;
-            return loadFromFile(p);
-        } catch (Exception e) {
-            return false;
-        }
+        // Disabled backup saving to use database instead
+        // try {
+        //     return saveToFile(DEFAULT_PATH());
+        // } catch (Exception e) {
+        //     return false;
+        // }
+        return true; // Pretend saving succeeded
     }
 }

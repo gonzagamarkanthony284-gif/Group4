@@ -8,6 +8,34 @@ import java.util.*;
 
 public class AttachmentService {
 
+    private static void ensurePatientFileAttachmentsTable(Connection conn) {
+        if (conn == null)
+            return;
+        try (PreparedStatement stmt = conn.prepareStatement(
+                "CREATE TABLE IF NOT EXISTS patient_file_attachments (" +
+                        "id INT AUTO_INCREMENT PRIMARY KEY," +
+                        "patient_id VARCHAR(20) NOT NULL," +
+                        "file_name VARCHAR(255) NOT NULL," +
+                        "file_path TEXT NOT NULL," +
+                        "file_type VARCHAR(100)," +
+                        "category VARCHAR(50)," +
+                        "file_size BIGINT," +
+                        "mime_type VARCHAR(100)," +
+                        "description TEXT," +
+                        "uploaded_by VARCHAR(50)," +
+                        "uploaded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+                        "last_modified TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+                        "file_hash VARCHAR(128)," +
+                        "is_encrypted BOOLEAN DEFAULT FALSE," +
+                        "status VARCHAR(20) DEFAULT 'Active'," +
+                        "INDEX idx_pfa_patient (patient_id)," +
+                        "INDEX idx_pfa_status (status)" +
+                        ")")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+    }
+
     /**
      * Upload and store a file attachment for a patient
      */
@@ -41,26 +69,28 @@ public class AttachmentService {
                 "uploaded_at, last_modified, file_hash, is_encrypted, status) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-        try (Connection conn = DBConnection.getConnection();
-                PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (Connection conn = DBConnection.getConnection()) {
+            ensurePatientFileAttachmentsTable(conn);
+            try (PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
-            stmt.setString(1, patientId);
-            stmt.setString(2, fileName);
-            stmt.setString(3, filePath);
-            stmt.setString(4, fileType != null ? fileType : "Unknown");
-            stmt.setString(5, category != null ? category : "General");
-            stmt.setLong(6, attachment.fileSize);
-            stmt.setString(7, attachment.mimeType);
-            stmt.setString(8, description != null ? description : "");
-            stmt.setString(9, uploadedBy != null ? uploadedBy : "System");
-            stmt.setTimestamp(10, Timestamp.valueOf(attachment.uploadedAt));
-            stmt.setTimestamp(11, Timestamp.valueOf(attachment.lastModified));
-            stmt.setString(12, attachment.fileHash);
-            stmt.setBoolean(13, attachment.isEncrypted);
-            stmt.setString(14, attachment.status);
+                stmt.setString(1, patientId);
+                stmt.setString(2, fileName);
+                stmt.setString(3, filePath);
+                stmt.setString(4, fileType != null ? fileType : "Unknown");
+                stmt.setString(5, category != null ? category : "General");
+                stmt.setLong(6, attachment.fileSize);
+                stmt.setString(7, attachment.mimeType);
+                stmt.setString(8, description != null ? description : "");
+                stmt.setString(9, uploadedBy != null ? uploadedBy : "System");
+                stmt.setTimestamp(10, Timestamp.valueOf(attachment.uploadedAt));
+                stmt.setTimestamp(11, Timestamp.valueOf(attachment.lastModified));
+                stmt.setString(12, attachment.fileHash);
+                stmt.setBoolean(13, attachment.isEncrypted);
+                stmt.setString(14, attachment.status);
 
-            stmt.executeUpdate();
-            result.add("File attachment uploaded successfully");
+                stmt.executeUpdate();
+                result.add("File attachment uploaded successfully");
+            }
 
         } catch (SQLException e) {
             result.add("Error uploading attachment: " + e.getMessage());
@@ -82,8 +112,9 @@ public class AttachmentService {
                 "WHERE patient_id = ? AND status = 'Active' " +
                 "ORDER BY uploaded_at DESC";
 
-        try (Connection conn = DBConnection.getConnection();
-                PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try (Connection conn = DBConnection.getConnection()) {
+            ensurePatientFileAttachmentsTable(conn);
+            PreparedStatement stmt = conn.prepareStatement(sql);
 
             stmt.setString(1, patientId);
             try (ResultSet rs = stmt.executeQuery()) {
@@ -107,7 +138,7 @@ public class AttachmentService {
                     attachments.add(attachment);
                 }
             }
-
+            stmt.close();
         } catch (SQLException e) {
             System.err.println("Error retrieving attachments: " + e.getMessage());
         }

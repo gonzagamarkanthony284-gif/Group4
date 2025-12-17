@@ -1,10 +1,6 @@
 package hpms.ui;
 
-import hpms.ui.staff.StaffRegistrationForm;
 import hpms.auth.AuthService;
-import hpms.model.*;
-import hpms.service.*;
-import hpms.util.*;
 import hpms.ui.components.*;
 import hpms.ui.panels.*;
 
@@ -57,7 +53,7 @@ public class AdminGUI extends JFrame {
         adminMenu.addAll(java.util.Arrays.asList(
                 "Dashboard", // Admin dashboard with system-wide metrics
                 "Patients", // Patient management (Admin view - full access)
-                "Staff", // Staff management and registration
+                "Staff", // Staff management and registration (including Front Desk)
                 "Appointments", // Global appointment oversight
                 "Billing", // Billing oversight
                 "Rooms", // Room management
@@ -102,40 +98,37 @@ public class AdminGUI extends JFrame {
         content.add("Administration", administrationPanel);
 
         content.add("Settings", new SettingsPanel());
-
         add(content, BorderLayout.CENTER);
-        showCard("Dashboard");
-
-        // Highlight Dashboard menu item on startup
+        
+        // Show dashboard by default
         if (dashboardBtn != null) {
-            currentSelected = dashboardBtn;
-            dashboardBtn.setSelectedState(true);
+            dashboardBtn.setSelected(true);
         }
-
-        // Auto-refresh dashboards every 2 seconds to reflect any cross-module changes
-        dashboardAutoRefresh = new javax.swing.Timer(2000, e -> {
-            if (this.isVisible()) {
-                refreshPanels();
-            }
-        });
+        
+        // Initialize window settings and auto-refresh
+        initializeWindow();
+        initializeAutoRefresh();
+    }
+    
+    /**
+     * Get the RoomsPanel for refresh operations
+     */
+    public RoomsPanel getRoomsPanel() {
+        return roomsPanel;
+    }
+    
+    private void initializeAutoRefresh() {
+        dashboardAutoRefresh = new javax.swing.Timer(30000, e -> refreshPanels());
         dashboardAutoRefresh.setRepeats(true);
         dashboardAutoRefresh.start();
-
-        // Setup autosave
-        autosaveScheduler.scheduleAtFixedRate(() -> {
-            try {
-                BackupUtil.saveToDefault();
-            } catch (Exception ex) {
-            }
-        }, 5, 5, java.util.concurrent.TimeUnit.MINUTES);
-
+    }
+    
+    private void initializeWindow() {
+        // Disabled autosave - using database instead
         setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(java.awt.event.WindowEvent e) {
-                try {
-                    BackupUtil.saveToDefault();
-                } catch (Exception ex) {
-                }
+                // Disabled backup save - using database instead
                 try {
                     autosaveScheduler.shutdownNow();
                 } catch (Exception ex) {
@@ -226,10 +219,7 @@ public class AdminGUI extends JFrame {
         currentSelected.setSelectedState(true);
 
         if (name.equals("Logout")) {
-            try {
-                BackupUtil.saveToDefault();
-            } catch (Exception ex) {
-            }
+            // Disabled backup save - using database instead
             AuthService.logout();
             new hpms.ui.login.LoginWindow().setVisible(true);
             dispose();

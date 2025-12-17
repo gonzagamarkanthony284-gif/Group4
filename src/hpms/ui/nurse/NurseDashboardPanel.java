@@ -57,6 +57,15 @@ public class NurseDashboardPanel extends JPanel {
         JScrollPane sp = new JScrollPane(inpatientsTable);
         Theme.styleScrollPane(sp);
         left.add(sp, BorderLayout.CENTER);
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        JButton viewAttachmentsBtn = new JButton("View Attachments");
+        viewAttachmentsBtn.setBackground(new Color(59, 130, 246));
+        viewAttachmentsBtn.setForeground(Color.WHITE);
+        viewAttachmentsBtn.setFocusPainted(false);
+        viewAttachmentsBtn.addActionListener(e -> viewPatientAttachments());
+        buttonPanel.add(viewAttachmentsBtn);
+        left.add(buttonPanel, BorderLayout.SOUTH);
         split.setLeftComponent(left);
 
         CardPanel right = new CardPanel();
@@ -157,16 +166,32 @@ public class NurseDashboardPanel extends JPanel {
         };
 
         int inpatients = 0;
-        for (Room r : DataStore.rooms.values()) {
-            if (r.status == RoomStatus.OCCUPIED && r.occupantPatientId != null) {
-                Patient p = DataStore.patients.get(r.occupantPatientId);
-                String bp = p != null ? (p.bloodPressure == null ? "" : p.bloodPressure) : "";
-                String hr = p != null ? (p.initialHr == null ? "" : p.initialHr) : "";
-                String sp = p != null ? (p.initialSpo2 == null ? "" : p.initialSpo2) : "";
-                m.addRow(new Object[]{r.occupantPatientId, p != null ? p.name : r.occupantPatientId, r.id, DataStore.patientStatus.getOrDefault(r.occupantPatientId, PatientStatus.INPATIENT), bp, hr, sp});
-                inpatients++;
+        int totalPatients = 0;
+        
+        // Show all patients, not just those in rooms
+        for (Patient p : DataStore.patients.values()) {
+            totalPatients++;
+            String patientId = p.id;
+            String name = p.name;
+            String room = "N/A";
+            PatientStatus status = DataStore.patientStatus.getOrDefault(patientId, PatientStatus.INPATIENT);
+            
+            // Find room if patient is in one
+            for (Room r : DataStore.rooms.values()) {
+                if (r.status == RoomStatus.OCCUPIED && r.occupantPatientId != null && r.occupantPatientId.equals(patientId)) {
+                    room = r.id;
+                    inpatients++;
+                    break;
+                }
             }
+            
+            String bp = p.bloodPressure != null ? p.bloodPressure : "";
+            String hr = p.initialHr != null ? p.initialHr : "";
+            String sp = p.initialSpo2 != null ? p.initialSpo2 : "";
+            
+            m.addRow(new Object[]{patientId, name, room, status, bp, hr, sp});
         }
+        
         inpatientsTable.setModel(m);
         Theme.styleTable(inpatientsTable);
         inpatientsTable.setRowSorter(new TableRowSorter<>(m));
@@ -180,7 +205,51 @@ public class NurseDashboardPanel extends JPanel {
                 return comp;
             }
         });
-        statsLabel.setText(String.format(Locale.US, "Inpatients: %d", inpatients));
+        statsLabel.setText(String.format(Locale.US, "Total Patients: %d | Inpatients: %d", totalPatients, inpatients));
+    }
+
+    private void viewPatientAttachments() {
+        // Get selected patient from inpatients table
+        int selectedRow = inpatientsTable.getSelectedRow();
+        if (selectedRow < 0) {
+            JOptionPane.showMessageDialog(this, "Please select a patient from the patient list", "Selection Required", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String patientId = String.valueOf(inpatientsTable.getValueAt(selectedRow, 0));
+        if (patientId == null || patientId.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Invalid patient selection", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Get patient name for dialog title
+        Patient patient = DataStore.patients.get(patientId);
+        String patientName = patient != null ? patient.name : "Unknown";
+
+        // Create attachment dialog
+        JDialog attachmentDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), 
+            "Medical Documents - " + patientName + " (" + patientId + ")", true);
+        attachmentDialog.setLayout(new BorderLayout(10, 10));
+        attachmentDialog.setSize(900, 600);
+        attachmentDialog.setLocationRelativeTo(this);
+
+        // Create medical document folder panel
+        hpms.ui.components.MedicalDocumentFolderPanel folderPanel = 
+            new hpms.ui.components.MedicalDocumentFolderPanel(patientId);
+
+        // Remove upload functionality for nurses (view-only)
+        folderPanel.getUploadButton().setVisible(false);
+
+        attachmentDialog.add(folderPanel, BorderLayout.CENTER);
+
+        // Close button
+        JPanel closePanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton closeBtn = new JButton("Close");
+        closeBtn.addActionListener(e -> attachmentDialog.dispose());
+        closePanel.add(closeBtn);
+        attachmentDialog.add(closePanel, BorderLayout.SOUTH);
+
+        attachmentDialog.setVisible(true);
     }
 }
 

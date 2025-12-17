@@ -1,14 +1,16 @@
 package hpms.ui.components;
 
 import hpms.model.FileAttachment;
+import hpms.model.UserRole;
 import hpms.service.AttachmentService;
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.Desktop;
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 
 public class MedicalDocumentFolderPanel extends JPanel {
@@ -63,10 +65,166 @@ public class MedicalDocumentFolderPanel extends JPanel {
         deleteBtn.setFont(Theme.APP_FONT.deriveFont(9f));
         deleteBtn.setForeground(new Color(200, 0, 0));
 
+        boolean canDelete = false;
+        if (hpms.auth.AuthService.current != null && hpms.auth.AuthService.current.role != null) {
+            UserRole role = hpms.auth.AuthService.current.role;
+            canDelete = (role == UserRole.ADMIN || role == UserRole.DOCTOR || role == UserRole.NURSE);
+        }
+        deleteBtn.setVisible(canDelete);
+        deleteBtn.setEnabled(canDelete);
+
         actionPanel.add(uploadBtn);
         actionPanel.add(viewBtn);
         actionPanel.add(downloadBtn);
-        actionPanel.add(deleteBtn);
+        if (canDelete) {
+            actionPanel.add(deleteBtn);
+        }
+
+        // Add upload button action listener
+        uploadBtn.addActionListener(e -> {
+            JFileChooser fileChooser = new JFileChooser();
+            fileChooser.setDialogTitle("Upload Medical Document");
+            fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+            
+            // Filter for common document types
+            javax.swing.filechooser.FileNameExtensionFilter filter = new javax.swing.filechooser.FileNameExtensionFilter(
+                "Documents & Images (*.pdf, *.doc, *.docx, *.jpg, *.jpeg, *.png, *.gif, *.txt)", 
+                "pdf", "doc", "docx", "jpg", "jpeg", "png", "gif", "txt");
+            fileChooser.setFileFilter(filter);
+            
+            int returnValue = fileChooser.showOpenDialog(this);
+            if (returnValue == JFileChooser.APPROVE_OPTION) {
+                File selectedFile = fileChooser.getSelectedFile();
+                if (selectedFile != null) {
+                    try {
+                        // Create FileAttachment object using correct constructor
+                        FileAttachment attachment = new FileAttachment(
+                            patientId, selectedFile.getName(), selectedFile.getAbsolutePath(), 
+                            "MEDICAL", "Documentation", 
+                            "Uploaded via medical documents panel",
+                            hpms.auth.AuthService.current.username
+                        );
+                        // uploadedAt is automatically set by constructor, no need to assign
+                        
+                        // Determine file type based on extension
+                        String fileName = selectedFile.getName().toLowerCase();
+                        if (fileName.endsWith(".pdf")) attachment.fileType = "PDF";
+                        else if (fileName.endsWith(".doc") || fileName.endsWith(".docx")) attachment.fileType = "DOC";
+                        else if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) attachment.fileType = "JPG";
+                        else if (fileName.endsWith(".png")) attachment.fileType = "PNG";
+                        else if (fileName.endsWith(".gif")) attachment.fileType = "GIF";
+                        else if (fileName.endsWith(".txt")) attachment.fileType = "TXT";
+                        else attachment.fileType = "OTHER";
+                        
+                        // Use PatientService.addClinicalInfo to store the attachment
+                        java.util.List<String> result = hpms.service.PatientService.addClinicalInfo(
+                            patientId, null, null, null, 
+                            "Medical document uploaded: " + attachment.fileName,
+                            hpms.auth.AuthService.current.username,
+                            null, null, null,  // X-ray
+                            null, null, null,  // Stool
+                            null, null, null,  // Urine
+                            null, null, null,  // Blood
+                            java.util.Arrays.asList(attachment.filePath)  // Other attachments
+                        );
+                        
+                        if (result.isEmpty() || !result.get(0).startsWith("Error:")) {
+                            JOptionPane.showMessageDialog(this, 
+                                "File uploaded successfully: " + selectedFile.getName(), 
+                                "Upload Success", JOptionPane.INFORMATION_MESSAGE);
+                            refreshAttachments(); // Refresh the attachment table
+                        } else {
+                            JOptionPane.showMessageDialog(this, 
+                                "Upload failed: " + result.get(0), 
+                                "Upload Error", JOptionPane.ERROR_MESSAGE);
+                        }
+                        
+                    } catch (Exception ex) {
+                        JOptionPane.showMessageDialog(this, 
+                            "Error uploading file: " + ex.getMessage(), 
+                            "Upload Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            }
+        });
+
+        viewBtn.addActionListener(e -> {
+            FileAttachment att = getSelectedAttachment();
+            if (att == null) {
+                JOptionPane.showMessageDialog(this, "Please select a file to preview");
+                return;
+            }
+
+            File file = new File(att.filePath);
+            if (!file.exists()) {
+                JOptionPane.showMessageDialog(this, "File not found: " + att.filePath,
+                        "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            try {
+                if (Desktop.isDesktopSupported()) {
+                    Desktop.getDesktop().open(file);
+                } else {
+                    JOptionPane.showMessageDialog(this, "Desktop integration is not supported on this system.",
+                            "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Cannot open file: " + ex.getMessage(),
+                        "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        downloadBtn.addActionListener(e -> {
+            FileAttachment att = getSelectedAttachment();
+            if (att == null) {
+                JOptionPane.showMessageDialog(this, "Please select a file to download");
+                return;
+            }
+
+            File sourceFile = new File(att.filePath);
+            if (!sourceFile.exists()) {
+                JOptionPane.showMessageDialog(this, "File not found: " + att.filePath,
+                        "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            JFileChooser fc = new JFileChooser();
+            fc.setSelectedFile(new File(att.fileName));
+            if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+                File destFile = fc.getSelectedFile();
+                try {
+                    Files.copy(sourceFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    JOptionPane.showMessageDialog(this,
+                            "File downloaded successfully to:\n" + destFile.getAbsolutePath());
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this, "Error downloading file: " + ex.getMessage(),
+                            "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        deleteBtn.addActionListener(e -> {
+            FileAttachment att = getSelectedAttachment();
+            if (att == null) {
+                JOptionPane.showMessageDialog(this, "Please select a file to delete");
+                return;
+            }
+
+            int confirm = JOptionPane.showConfirmDialog(this,
+                    "Delete file: " + att.fileName + "?",
+                    "Confirm Delete",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE);
+
+            if (confirm == JOptionPane.YES_OPTION) {
+                java.util.List<String> result = AttachmentService.deleteAttachment(att.id);
+                if (result != null && !result.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, String.join("\n", result));
+                }
+                refreshAttachments();
+            }
+        });
 
         topPanel.add(headerPanel, BorderLayout.WEST);
         topPanel.add(actionPanel, BorderLayout.EAST);

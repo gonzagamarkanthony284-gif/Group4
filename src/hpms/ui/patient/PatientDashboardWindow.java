@@ -1,11 +1,14 @@
 package hpms.ui.patient;
 
 import hpms.model.*;
-import hpms.util.*;
 import hpms.service.AppointmentService;
+import hpms.service.BillingService;
+import hpms.util.*;
+
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
+import java.awt.event.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Locale;
@@ -16,8 +19,8 @@ import java.util.List;
 public class PatientDashboardWindow extends JFrame {
     private Patient patient;
     private JPanel contentPanel;
-    private JLabel profileTab, visitsTab, insuranceTab, requestsTab, medicalTab, billingTab;
-    private JTable todayTable, upcomingTable, requestsTable, billingTable;
+    private JLabel profileTab, visitsTab, insuranceTab, requestsTab, medicalTab, billingTab, documentsTab, doctorProfileTab;
+    private JTable todayTable, upcomingTable, requestsTable, historyTable, billingTable;
 
     public PatientDashboardWindow(Patient patient) {
         this.patient = patient;
@@ -39,10 +42,12 @@ public class PatientDashboardWindow extends JFrame {
         contentPanel.add(createProfilePanel(), "profile");
         contentPanel.add(createVisitsPanel(), "visits");
         contentPanel.add(createMedicalPanel(), "medical");
+        contentPanel.add(createDocumentsPanel(), "documents");
         contentPanel.add(createBillingPanel(), "billing");
         contentPanel.add(createInsurancePanel(), "insurance");
         contentPanel.add(createRequestsPanel(), "requests");
-
+        contentPanel.add(createDoctorProfilePanel(), "doctorProfile");
+        
         bodyPanel.add(contentPanel, BorderLayout.CENTER);
         mainPanel.add(bodyPanel, BorderLayout.CENTER);
 
@@ -86,16 +91,20 @@ public class PatientDashboardWindow extends JFrame {
         profileTab = createTabButton("👤 My Profile", "profile");
         visitsTab = createTabButton("📋 My Visits", "visits");
         medicalTab = createTabButton("🩺 Medical", "medical");
+        documentsTab = createTabButton("📁 Documents", "documents");
         billingTab = createTabButton("💵 Billing", "billing");
         insuranceTab = createTabButton("💳 Insurance", "insurance");
+        doctorProfileTab = createTabButton("👨‍⚕️ Doctor Profile", "doctorProfile");
         requestsTab = createTabButton("📝 Requests", "requests");
 
         sidebar.add(profileTab);
         sidebar.add(visitsTab);
         sidebar.add(medicalTab);
+        sidebar.add(documentsTab);
         sidebar.add(billingTab);
         sidebar.add(insuranceTab);
         sidebar.add(requestsTab);
+        sidebar.add(doctorProfileTab);
         sidebar.add(Box.createVerticalGlue());
 
         JPanel infoPanel = new JPanel();
@@ -148,7 +157,7 @@ public class PatientDashboardWindow extends JFrame {
         panel.add(createReadOnlyField("Age:", String.valueOf(patient.age)));
         panel.add(createReadOnlyField("Gender:", patient.gender == null ? "" : patient.gender.name()));
         panel.add(createReadOnlyField("Status:", getPatientStatusText()));
-        panel.add(createReadOnlyField("Assigned Doctor:", getAssignedDoctorDisplay()));
+        panel.add(createFieldPanel("Assigned Doctor:", createAssignedDoctorPanel()));
         panel.add(createReadOnlyField("Contact:", patient.contact));
         panel.add(createReadOnlyField("Address:", patient.address));
 
@@ -206,7 +215,15 @@ public class PatientDashboardWindow extends JFrame {
         bills.sort(Comparator.comparing(b -> b.createdAt));
         for (Bill b : bills) {
             String method = b.paymentMethod == null ? "Not set" : b.paymentMethod.name();
-            m.addRow(new Object[] { b.id, String.format(Locale.US, "%.2f", b.total), b.paid ? "Paid" : "Unpaid",
+            String status;
+            if (b.paid) {
+                status = "Paid";
+            } else if (b.paymentMethod != null) {
+                status = "Pending Confirmation";
+            } else {
+                status = "Unpaid";
+            }
+            m.addRow(new Object[] { b.id, String.format(Locale.US, "%.2f", b.total), status,
                     method, b.createdAt.toLocalDate(), b.updatedAt == null ? "" : b.updatedAt.toLocalDate() });
         }
         if (outstandingLabel != null) {
@@ -214,6 +231,79 @@ public class PatientDashboardWindow extends JFrame {
             outstandingLabel.setText(outstanding <= 0 ? "No balance due"
                     : String.format(Locale.US, "Outstanding: $%.2f", outstanding));
         }
+    }
+
+    private void makePayment() {
+        // Get selected bill
+        int selectedRow = billingTable.getSelectedRow();
+        if (selectedRow < 0) {
+            JOptionPane.showMessageDialog(this, "Please select a bill to pay", "Selection Required", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String billId = String.valueOf(billingTable.getValueAt(selectedRow, 0));
+        Bill bill = DataStore.bills.get(billId);
+        
+        if (bill == null) {
+            JOptionPane.showMessageDialog(this, "Invalid bill selected", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        if (bill.paid) {
+            JOptionPane.showMessageDialog(this, "This bill is already paid", "Payment Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Create payment dialog
+        JDialog paymentDialog = new JDialog(this, "Make Payment - " + billId, true);
+        paymentDialog.setLayout(new BorderLayout(10, 10));
+        paymentDialog.setSize(400, 300);
+        paymentDialog.setLocationRelativeTo(this);
+
+        JPanel infoPanel = new JPanel(new GridLayout(0, 2, 5, 5));
+        infoPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        
+        infoPanel.add(new JLabel("Bill ID:"));
+        infoPanel.add(new JLabel(bill.id));
+        
+        infoPanel.add(new JLabel("Amount:"));
+        infoPanel.add(new JLabel(String.format(Locale.US, "$%.2f", bill.total)));
+        
+        infoPanel.add(new JLabel("Payment Method:"));
+        JComboBox<String> paymentMethodCombo = new JComboBox<>(new String[]{"CASH", "CARD", "INSURANCE"});
+        infoPanel.add(paymentMethodCombo);
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
+        
+        JButton submitBtn = new JButton("Submit Payment");
+        submitBtn.setBackground(new Color(34, 197, 94));
+        submitBtn.setForeground(Color.WHITE);
+        submitBtn.addActionListener(e -> {
+            String method = (String) paymentMethodCombo.getSelectedItem();
+            
+            // Create payment record as pending confirmation
+            List<String> result = BillingService.initiatePayment(bill.id, method);
+            
+            if (!result.isEmpty() && result.get(0).startsWith("Error:")) {
+                JOptionPane.showMessageDialog(paymentDialog, result.get(0), "Payment Error", JOptionPane.ERROR_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(paymentDialog, "Payment submitted for confirmation!\n\nYour payment will be confirmed by cashier or admin.", "Payment Submitted", JOptionPane.INFORMATION_MESSAGE);
+                paymentDialog.dispose();
+                // Refresh billing table
+                JLabel outstandingLabel = new JLabel();
+                refreshBillingTable(outstandingLabel);
+            }
+        });
+        
+        JButton cancelBtn = new JButton("Cancel");
+        cancelBtn.addActionListener(e -> paymentDialog.dispose());
+        
+        buttonPanel.add(submitBtn);
+        buttonPanel.add(cancelBtn);
+
+        paymentDialog.add(infoPanel, BorderLayout.CENTER);
+        paymentDialog.add(buttonPanel, BorderLayout.SOUTH);
+        paymentDialog.setVisible(true);
     }
 
     private double getOutstandingBalance(List<Bill> bills) {
@@ -253,12 +343,11 @@ public class PatientDashboardWindow extends JFrame {
             if (a.dateTime.isAfter(now)) {
                 if (nearestFuture == null || a.dateTime.isBefore(nearestFuture.dateTime))
                     nearestFuture = a;
-            } else {
-                if (latestPast == null || a.dateTime.isAfter(latestPast.dateTime))
-                    latestPast = a;
+            } else if (latestPast == null || a.dateTime.isAfter(latestPast.dateTime)) {
+                latestPast = a;
             }
         }
-        Appointment chosen = nearestFuture != null ? nearestFuture : latestPast;
+        Appointment chosen = (nearestFuture != null) ? nearestFuture : latestPast;
         if (chosen == null)
             return "Not assigned";
         Staff doctor = DataStore.staff.get(chosen.staffId);
@@ -267,11 +356,60 @@ public class PatientDashboardWindow extends JFrame {
             return name + " (" + doctor.department + ")";
         return name;
     }
+    
+    private JPanel createAssignedDoctorPanel() {
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        panel.setOpaque(false);
+        
+        String assignedDoctor = getAssignedDoctorDisplay();
+        if (!assignedDoctor.equals("Not assigned")) {
+            // Get doctor ID from appointments
+            final String doctorId;
+            LocalDateTime now = LocalDateTime.now();
+            Appointment nearestFuture = null;
+            Appointment latestPast = null;
+            for (Appointment a : DataStore.appointments.values()) {
+                if (!patient.id.equals(a.patientId))
+                    continue;
+                if (a.dateTime.isAfter(now)) {
+                    if (nearestFuture == null || a.dateTime.isBefore(nearestFuture.dateTime))
+                        nearestFuture = a;
+                } else if (latestPast == null || a.dateTime.isAfter(latestPast.dateTime)) {
+                    latestPast = a;
+                }
+            }
+            Appointment chosen = (nearestFuture != null) ? nearestFuture : latestPast;
+            if (chosen != null) {
+                doctorId = chosen.staffId;
+            } else {
+                doctorId = null;
+            }
+            
+            if (doctorId != null) {
+                JLabel doctorLabel = new JLabel("<html><u style='color: blue'>" + assignedDoctor + "</u></html>");
+                doctorLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                doctorLabel.addMouseListener(new MouseAdapter() {
+                    @Override
+                    public void mouseClicked(MouseEvent e) {
+                        new DoctorProfileViewDialog(PatientDashboardWindow.this, doctorId).setVisible(true);
+                    }
+                });
+                panel.add(doctorLabel);
+            } else {
+                panel.add(new JLabel(assignedDoctor));
+            }
+        } else {
+            panel.add(new JLabel(assignedDoctor));
+        }
+        
+        return panel;
+    }
 
     private JPanel createVisitsPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         panel.setBackground(Color.WHITE);
+        panel.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
+
         JPanel topBar = new JPanel(new BorderLayout());
         topBar.setOpaque(false);
         JLabel title = new JLabel("My Visits & Appointments");
@@ -306,12 +444,26 @@ public class PatientDashboardWindow extends JFrame {
                 return false;
             }
         });
+        historyTable = new JTable(new javax.swing.table.DefaultTableModel(
+                new String[] { "ID", "Doctor", "Date", "Time", "Department", "Status", "DoctorId" }, 0) {
+            public boolean isCellEditable(int r, int c) {
+                return false;
+            }
+        });
         hideIdColumns(todayTable);
         hideIdColumns(upcomingTable);
         hideIdColumns(requestsTable);
+        hideIdColumns(historyTable);
+        
+        // Add mouse listeners for clickable doctor names
+        addDoctorClickListener(todayTable);
+        addDoctorClickListener(upcomingTable);
+        addDoctorClickListener(requestsTable);
+        addDoctorClickListener(historyTable);
 
         tabs.addTab("Today", new JScrollPane(todayTable));
         tabs.addTab("Upcoming", new JScrollPane(upcomingTable));
+        tabs.addTab("History", new JScrollPane(historyTable));
         tabs.addTab("Requests", new JScrollPane(requestsTable));
         panel.add(tabs, BorderLayout.CENTER);
 
@@ -330,6 +482,7 @@ public class PatientDashboardWindow extends JFrame {
 
         refreshTodayTable();
         refreshUpcomingTable();
+        refreshHistoryTable();
         refreshRequestsTable();
         return panel;
     }
@@ -370,36 +523,30 @@ public class PatientDashboardWindow extends JFrame {
         JLabel dateLabel = new JLabel("Date");
         form.add(dateLabel, gbc);
         gbc.gridx = 1;
-        JComboBox<String> dateCombo = new JComboBox<>();
-        LocalDate today = LocalDate.now();
-        for (int i = 0; i < 14; i++) {
-            dateCombo.addItem(today.plusDays(i).toString());
-        }
-        form.add(dateCombo, gbc);
+        JSpinner dateSpinner = new JSpinner(new SpinnerDateModel());
+        JSpinner.DateEditor dateEditor = new JSpinner.DateEditor(dateSpinner, "yyyy-MM-dd");
+        dateSpinner.setEditor(dateEditor);
+        dateSpinner.setValue(new java.util.Date()); // Set to today's date
+        form.add(dateSpinner, gbc);
         gbc.gridx = 0;
         gbc.gridy++;
         JLabel timeLabel = new JLabel("Time");
         form.add(timeLabel, gbc);
         gbc.gridx = 1;
-        JComboBox<String> timeCombo = new JComboBox<>();
-        form.add(timeCombo, gbc);
+        JSpinner timeSpinner = new JSpinner(new SpinnerDateModel());
+        JSpinner.DateEditor timeEditor = new JSpinner.DateEditor(timeSpinner, "HH:mm");
+        timeSpinner.setEditor(timeEditor);
+        form.add(timeSpinner, gbc);
 
         Runnable refreshDerived = () -> {
             String docSel = (String) doctorCombo.getSelectedItem();
-            String dateSel = (String) dateCombo.getSelectedItem();
             String docId = docSel == null ? null : docSel.split(" - ")[0];
             Staff doc = docId == null ? null : DataStore.staff.get(docId);
             deptField.setText(doc != null && doc.department != null ? doc.department : "");
-            timeCombo.removeAllItems();
-            if (docId != null && dateSel != null) {
-                // Doctor availability scheduling removed - use default time slots
-                for (int h = 9; h <= 17; h++) {
-                    timeCombo.addItem(String.format(Locale.US, "%02d:00", h));
-                }
-            }
+            timeSpinner.setValue(new java.util.Date()); // Reset to current time
         };
         doctorCombo.addActionListener(e -> refreshDerived.run());
-        dateCombo.addActionListener(e -> refreshDerived.run());
+        dateSpinner.addChangeListener(e -> refreshDerived.run());
         if (doctorCombo.getItemCount() > 0)
             doctorCombo.setSelectedIndex(0);
         refreshDerived.run();
@@ -415,8 +562,16 @@ public class PatientDashboardWindow extends JFrame {
         cancel.addActionListener(e -> dialog.dispose());
         schedule.addActionListener(e -> {
             String docSel = (String) doctorCombo.getSelectedItem();
-            String dateSel = (String) dateCombo.getSelectedItem();
-            String timeSel = (String) timeCombo.getSelectedItem();
+            // Get date from spinner
+            java.util.Date selectedDate = (java.util.Date) dateSpinner.getValue();
+            java.text.SimpleDateFormat dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd");
+            String dateSel = dateFormat.format(selectedDate);
+            
+            // Get time from spinner
+            java.util.Date selectedTime = (java.util.Date) timeSpinner.getValue();
+            java.text.SimpleDateFormat timeFormat = new java.text.SimpleDateFormat("HH:mm");
+            String timeSel = timeFormat.format(selectedTime);
+            
             String docId = docSel == null ? null : docSel.split(" - ")[0];
             String dept = deptField.getText();
             java.util.List<String> out = AppointmentService.schedule(patient.id, docId, dateSel, timeSel, dept);
@@ -428,10 +583,7 @@ public class PatientDashboardWindow extends JFrame {
                     Appointment a = hpms.util.DataStore.appointments.get(id);
                     if (a != null) {
                         a.notes = "Pending appointment request";
-                        try {
-                            hpms.util.BackupUtil.saveToDefault();
-                        } catch (Exception ex) {
-                        }
+                        // Disabled backup save - using database instead
                     }
                 }
                 dialog.dispose();
@@ -526,6 +678,28 @@ public class PatientDashboardWindow extends JFrame {
         }
     }
 
+    private void refreshHistoryTable() {
+        javax.swing.table.DefaultTableModel m = (javax.swing.table.DefaultTableModel) historyTable.getModel();
+        m.setRowCount(0);
+        LocalDate today = LocalDate.now();
+        java.util.List<Appointment> pastAppointments = new java.util.ArrayList<>();
+        for (Appointment appt : DataStore.appointments.values()) {
+            if (appt.patientId.equals(patient.id) && appt.dateTime.toLocalDate().isBefore(today)) {
+                if (appt.notes != null && appt.notes.toLowerCase().contains("pending"))
+                    continue;
+                pastAppointments.add(appt);
+            }
+        }
+        // Sort by date descending (most recent first)
+        pastAppointments.sort((a, b) -> b.dateTime.compareTo(a.dateTime));
+        for (Appointment appt : pastAppointments) {
+            Staff doctor = DataStore.staff.get(appt.staffId);
+            String doctorName = doctor != null && doctor.name != null ? doctor.name : appt.staffId;
+            m.addRow(new Object[] { appt.id, doctorName, appt.dateTime.toLocalDate().toString(),
+                    appt.dateTime.toLocalTime().toString(), appt.department, getAppointmentStatus(appt), appt.staffId });
+        }
+    }
+
     private String selectedIdFrom(JTable t) {
         int r = t.getSelectedRow();
         if (r < 0)
@@ -539,6 +713,43 @@ public class PatientDashboardWindow extends JFrame {
             return null;
         int idx = t.getModel().getColumnCount() - 1;
         return String.valueOf(t.getValueAt(r, idx));
+    }
+    
+    private void addDoctorClickListener(JTable table) {
+        table.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int column = table.columnAtPoint(e.getPoint());
+                int row = table.rowAtPoint(e.getPoint());
+                
+                // Check if click is on the Doctor column (column index 1)
+                if (column == 1 && row >= 0) {
+                    String doctorId = selectedDoctorIdFrom(table);
+                    if (doctorId != null && !doctorId.isEmpty()) {
+                        // Open doctor profile dialog
+                        new DoctorProfileViewDialog(PatientDashboardWindow.this, doctorId).setVisible(true);
+                    }
+                }
+            }
+            
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                int column = table.columnAtPoint(e.getPoint());
+                int row = table.rowAtPoint(e.getPoint());
+                
+                // Change cursor to hand when hovering over doctor names
+                if (column == 1 && row >= 0) {
+                    table.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                } else {
+                    table.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+                }
+            }
+            
+            @Override
+            public void mouseExited(MouseEvent e) {
+                table.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+            }
+        });
     }
 
     private void viewAppointmentDetails() {
@@ -629,10 +840,7 @@ public class PatientDashboardWindow extends JFrame {
             Appointment a = DataStore.appointments.get(id);
             if (a != null) {
                 a.notes = "Pending reschedule to " + ds + " " + ts;
-                try {
-                    BackupUtil.saveToDefault();
-                } catch (Exception ex) {
-                }
+                // Disabled backup save - using database instead
                 JOptionPane.showMessageDialog(this, "Reschedule request sent", "Success",
                         JOptionPane.INFORMATION_MESSAGE);
                 refreshRequestsTable();
@@ -667,6 +875,7 @@ public class PatientDashboardWindow extends JFrame {
             JOptionPane.showMessageDialog(this, "Appointment canceled", "Success", JOptionPane.INFORMATION_MESSAGE);
             refreshTodayTable();
             refreshUpcomingTable();
+            refreshHistoryTable();
             refreshRequestsTable();
         }
     }
@@ -759,7 +968,7 @@ public class PatientDashboardWindow extends JFrame {
         panel.add(createSectionHeader("🩺 Care Overview"));
         panel.add(createReadOnlyField("Status:", getPatientStatusText()));
         panel.add(createReadOnlyField("Patient Type:", patient.patientType == null ? "" : patient.patientType));
-        panel.add(createReadOnlyField("Assigned Doctor:", getAssignedDoctorDisplay()));
+        panel.add(createFieldPanel("Assigned Doctor:", createAssignedDoctorPanel()));
 
         panel.add(Box.createVerticalStrut(15));
         panel.add(createSectionHeader("📈 Vitals"));
@@ -816,8 +1025,21 @@ public class PatientDashboardWindow extends JFrame {
         top.add(outstanding, BorderLayout.EAST);
         panel.add(top, BorderLayout.NORTH);
 
+        // Payment buttons panel
+        JPanel paymentPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        paymentPanel.setOpaque(false);
+        
+        JButton payBtn = new JButton("Make Payment");
+        payBtn.setBackground(new Color(34, 197, 94));
+        payBtn.setForeground(Color.WHITE);
+        payBtn.setFocusPainted(false);
+        payBtn.addActionListener(e -> makePayment());
+        
+        paymentPanel.add(payBtn);
+        panel.add(paymentPanel, BorderLayout.NORTH);
+
         billingTable = new JTable(new javax.swing.table.DefaultTableModel(
-                new String[] { "Bill ID", "Total", "Paid", "Method", "Created", "Updated" }, 0) {
+                new String[] { "Bill ID", "Total", "Status", "Method", "Created", "Updated" }, 0) {
             public boolean isCellEditable(int r, int c) {
                 return false;
             }
@@ -826,6 +1048,27 @@ public class PatientDashboardWindow extends JFrame {
         panel.add(scroll, BorderLayout.CENTER);
 
         refreshBillingTable(outstanding);
+        return panel;
+    }
+
+    private JPanel createDocumentsPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        panel.setBackground(Color.WHITE);
+
+        JLabel title = new JLabel("Medical Documents");
+        title.setFont(new Font("Arial", Font.BOLD, 18));
+        title.setForeground(new Color(31, 41, 55));
+        panel.add(title, BorderLayout.NORTH);
+
+        // Use the existing MedicalDocumentFolderPanel
+        hpms.ui.components.MedicalDocumentFolderPanel documentsPanel = 
+            new hpms.ui.components.MedicalDocumentFolderPanel(patient.id);
+        
+        // Remove upload functionality for patients (view-only)
+        documentsPanel.getUploadButton().setVisible(false);
+        
+        panel.add(documentsPanel, BorderLayout.CENTER);
         return panel;
     }
 
@@ -839,12 +1082,27 @@ public class PatientDashboardWindow extends JFrame {
         return p;
     }
 
-    private JPanel createReadOnlyField(String label, String value) {
+    private JPanel createFieldPanel(String labelText, JComponent valueComponent) {
+        JPanel panel = new JPanel(new BorderLayout(8, 0));
+        panel.setOpaque(false);
+        
+        JLabel label = new JLabel(labelText);
+        label.setFont(new Font("Arial", Font.BOLD, 12));
+        label.setForeground(new Color(31, 41, 55));
+        label.setPreferredSize(new Dimension(120, 20));
+        
+        panel.add(label, BorderLayout.WEST);
+        panel.add(valueComponent, BorderLayout.CENTER);
+        
+        return panel;
+    }
+
+    private JPanel createReadOnlyField(String labelText, String valueText) {
         JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT));
         p.setOpaque(false);
-        JLabel l = new JLabel(label);
+        JLabel l = new JLabel(labelText);
         l.setPreferredSize(new Dimension(180, 20));
-        JLabel v = new JLabel(value == null ? "" : value);
+        JLabel v = new JLabel(valueText == null ? "" : valueText);
         p.add(l);
         p.add(v);
         return p;
@@ -857,6 +1115,7 @@ public class PatientDashboardWindow extends JFrame {
     }
 
     private void switchTab(String tabName) {
+        // Reset all tabs
         Color idleColor = new Color(60, 60, 60);
         profileTab.setOpaque(false);
         profileTab.setForeground(idleColor);
@@ -864,47 +1123,184 @@ public class PatientDashboardWindow extends JFrame {
         visitsTab.setForeground(idleColor);
         medicalTab.setOpaque(false);
         medicalTab.setForeground(idleColor);
+        documentsTab.setOpaque(false);
+        documentsTab.setForeground(idleColor);
         billingTab.setOpaque(false);
         billingTab.setForeground(idleColor);
         insuranceTab.setOpaque(false);
         insuranceTab.setForeground(idleColor);
         requestsTab.setOpaque(false);
         requestsTab.setForeground(idleColor);
+        doctorProfileTab.setOpaque(false);
+        doctorProfileTab.setForeground(idleColor);
 
         switch (tabName) {
             case "profile":
                 profileTab.setOpaque(true);
                 profileTab.setBackground(new Color(0, 102, 102));
                 profileTab.setForeground(Color.WHITE);
+                ((CardLayout) contentPanel.getLayout()).show(contentPanel, "profile");
+                break;
+            
+            case "doctorProfile":
+                doctorProfileTab.setOpaque(true);
+                doctorProfileTab.setBackground(new Color(0, 102, 102));
+                doctorProfileTab.setForeground(Color.WHITE);
+                ((CardLayout) contentPanel.getLayout()).show(contentPanel, "doctorProfile");
                 break;
             case "visits":
                 visitsTab.setOpaque(true);
                 visitsTab.setBackground(new Color(0, 102, 102));
                 visitsTab.setForeground(Color.WHITE);
+                ((CardLayout) contentPanel.getLayout()).show(contentPanel, "visits");
                 break;
             case "medical":
                 medicalTab.setOpaque(true);
                 medicalTab.setBackground(new Color(0, 102, 102));
                 medicalTab.setForeground(Color.WHITE);
+                ((CardLayout) contentPanel.getLayout()).show(contentPanel, "medical");
+                break;
+            case "documents":
+                documentsTab.setOpaque(true);
+                documentsTab.setBackground(new Color(0, 102, 102));
+                documentsTab.setForeground(Color.WHITE);
+                ((CardLayout) contentPanel.getLayout()).show(contentPanel, "documents");
                 break;
             case "billing":
                 billingTab.setOpaque(true);
                 billingTab.setBackground(new Color(0, 102, 102));
                 billingTab.setForeground(Color.WHITE);
+                ((CardLayout) contentPanel.getLayout()).show(contentPanel, "billing");
                 break;
             case "insurance":
                 insuranceTab.setOpaque(true);
                 insuranceTab.setBackground(new Color(0, 102, 102));
                 insuranceTab.setForeground(Color.WHITE);
+                ((CardLayout) contentPanel.getLayout()).show(contentPanel, "insurance");
                 break;
             case "requests":
                 requestsTab.setOpaque(true);
                 requestsTab.setBackground(new Color(0, 102, 102));
                 requestsTab.setForeground(Color.WHITE);
+                ((CardLayout) contentPanel.getLayout()).show(contentPanel, "requests");
                 break;
         }
+    }
+    
+    private String getAssignedDoctorId() {
+        List<Appointment> appointments = new ArrayList<>();
+        for (Appointment appt : DataStore.appointments.values()) {
+            if (appt.patientId.equals(patient.id)) {
+                appointments.add(appt);
+            }
+        }
+        if (appointments == null || appointments.isEmpty()) {
+            return null;
+        }
+        
+        Appointment mostRecent = null;
+        for (Appointment appt : appointments) {
+            if (appt.staffId != null && !appt.staffId.isEmpty()) {
+                if (mostRecent == null || appt.dateTime.isAfter(mostRecent.dateTime)) {
+                    mostRecent = appt;
+                }
+            }
+        }
+        return mostRecent != null ? mostRecent.staffId : null;
+    }
+    
+    private JPanel createDoctorProfilePanel() {
+        JPanel panel = new JPanel(new BorderLayout(12, 12));
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        panel.setBackground(Color.WHITE);
 
-        CardLayout cl = (CardLayout) contentPanel.getLayout();
-        cl.show(contentPanel, tabName);
+        JLabel title = new JLabel("Doctor's Public Profile");
+        title.setFont(new Font("Arial", Font.BOLD, 18));
+        panel.add(title, BorderLayout.NORTH);
+
+        java.util.List<Staff> doctors = hpms.service.DoctorService.getAllDoctors();
+        if (doctors == null || doctors.isEmpty()) {
+            panel.add(new JLabel("No doctors available."), BorderLayout.CENTER);
+            return panel;
+        }
+
+        javax.swing.table.DefaultTableModel model = new javax.swing.table.DefaultTableModel(
+                new Object[] { "Name", "Department", "Specialty", "Id" }, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        for (Staff d : doctors) {
+            model.addRow(new Object[] {
+                    d.name != null ? d.name : "",
+                    d.department != null ? d.department : "",
+                    d.specialty != null ? d.specialty : "",
+                    d.id
+            });
+        }
+
+        JTable table = new JTable(model);
+        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        table.setRowHeight(26);
+        table.getTableHeader().setReorderingAllowed(false);
+
+        // Hide ID column
+        javax.swing.table.TableColumn idCol = table.getColumnModel().getColumn(3);
+        idCol.setMinWidth(0);
+        idCol.setMaxWidth(0);
+        idCol.setPreferredWidth(0);
+
+        JScrollPane listScroll = new JScrollPane(table);
+        listScroll.setBorder(BorderFactory.createTitledBorder("All Doctors"));
+        listScroll.getVerticalScrollBar().setUnitIncrement(16);
+
+        JPanel profileHost = new JPanel(new BorderLayout());
+        profileHost.setBackground(Color.WHITE);
+        profileHost.setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240)));
+
+        Runnable refreshSelected = () -> {
+            int r = table.getSelectedRow();
+            if (r < 0) return;
+            String doctorId = String.valueOf(table.getValueAt(r, 3));
+            Staff selected = hpms.service.DoctorService.getDoctorById(doctorId);
+            profileHost.removeAll();
+            if (selected != null) {
+                profileHost.add(new hpms.ui.doctor.DoctorPublicProfilePanel(selected), BorderLayout.CENTER);
+            } else {
+                profileHost.add(new JLabel("Doctor not found or inactive."), BorderLayout.CENTER);
+            }
+            profileHost.revalidate();
+            profileHost.repaint();
+        };
+
+        table.getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                refreshSelected.run();
+            }
+        });
+
+        // Default selection: assigned doctor if present, else first.
+        String assignedDoctorId = getAssignedDoctorId();
+        int selectRow = 0;
+        if (assignedDoctorId != null && !assignedDoctorId.isEmpty()) {
+            for (int i = 0; i < model.getRowCount(); i++) {
+                if (assignedDoctorId.equals(String.valueOf(model.getValueAt(i, 3)))) {
+                    selectRow = i;
+                    break;
+                }
+            }
+        }
+
+        table.setRowSelectionInterval(selectRow, selectRow);
+        refreshSelected.run();
+
+        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, listScroll, profileHost);
+        split.setResizeWeight(0.30);
+        split.setDividerLocation(280);
+        split.setBorder(null);
+
+        panel.add(split, BorderLayout.CENTER);
+        return panel;
     }
 }

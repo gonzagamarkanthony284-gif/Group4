@@ -90,6 +90,9 @@ public class BillingPanel extends JPanel {
         JButton payBtn = new JButton("Pay Bill");
         styleButton(payBtn, new Color(39, 174, 96));
 
+        JButton confirmBtn = new JButton("Confirm Payment");
+        styleButton(confirmBtn, new Color(230, 126, 34));
+
         JButton viewItemsBtn = new JButton("View Items");
         styleButton(viewItemsBtn, new Color(155, 89, 182));
 
@@ -102,6 +105,7 @@ public class BillingPanel extends JPanel {
         createBtn.addActionListener(e -> createBillDialog());
         addItemBtn.addActionListener(e -> addItemDialog());
         payBtn.addActionListener(e -> payBillDialog());
+        confirmBtn.addActionListener(e -> confirmPaymentDialog());
         viewItemsBtn.addActionListener(e -> viewBillItems());
         historyBtn.addActionListener(e -> showPaymentHistory());
         deleteBtn.addActionListener(e -> deleteBill());
@@ -109,6 +113,7 @@ public class BillingPanel extends JPanel {
         panel.add(createBtn);
         panel.add(addItemBtn);
         panel.add(payBtn);
+        panel.add(confirmBtn);
         panel.add(viewItemsBtn);
         panel.add(historyBtn);
         panel.add(deleteBtn);
@@ -299,6 +304,32 @@ public class BillingPanel extends JPanel {
         if (bill == null)
             return;
 
+        if (bill.paid) {
+            JOptionPane.showMessageDialog(this, "This bill is already paid", "Payment Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        if (bill.paymentMethod != null) {
+            // This is a pending confirmation from patient
+            int confirm = JOptionPane.showConfirmDialog(this, 
+                "Confirm payment for Bill " + billId + " (" + String.format(Locale.US, "$%.2f", bill.total) + ")?\n" +
+                "Patient Payment Method: " + bill.paymentMethod.name(),
+                "Confirm Patient Payment", JOptionPane.YES_NO_OPTION);
+            
+            if (confirm == JOptionPane.YES_OPTION) {
+                java.util.List<String> result = BillingService.confirmPayment(billId);
+                if (result.get(0).startsWith("Payment confirmed")) {
+                    JOptionPane.showMessageDialog(this, "Payment confirmed successfully!", "Success",
+                            JOptionPane.INFORMATION_MESSAGE);
+                    refresh();
+                } else {
+                    JOptionPane.showMessageDialog(this, result.get(0), "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+            return;
+        }
+
+        // Regular admin payment processing
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Process Payment", true);
         dialog.setSize(400, 300);
         dialog.setLocationRelativeTo(SwingUtilities.getWindowAncestor(this));
@@ -446,6 +477,51 @@ public class BillingPanel extends JPanel {
         JOptionPane.showMessageDialog(this, panel, "Payment History", JOptionPane.INFORMATION_MESSAGE);
     }
 
+    private void confirmPaymentDialog() {
+        int row = billTable.getSelectedRow();
+        if (row < 0) {
+            JOptionPane.showMessageDialog(this, "Please select a bill to confirm payment", "Selection Required",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String billId = billModel.getValueAt(row, 0).toString();
+        Bill bill = DataStore.bills.get(billId);
+
+        if (bill == null) {
+            JOptionPane.showMessageDialog(this, "Invalid bill selected", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        if (bill.paid) {
+            JOptionPane.showMessageDialog(this, "This bill is already paid", "Payment Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        if (bill.paymentMethod == null) {
+            JOptionPane.showMessageDialog(this, "This bill has no pending payment to confirm", "Payment Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Show confirmation dialog
+        int confirm = JOptionPane.showConfirmDialog(this, 
+            "Confirm payment for Bill " + billId + " (" + String.format(Locale.US, "$%.2f", bill.total) + ")?\n" +
+            "Patient Payment Method: " + bill.paymentMethod.name() + "\n\n" +
+            "This will finalize the patient's payment.",
+            "Confirm Patient Payment", JOptionPane.YES_NO_OPTION);
+        
+        if (confirm == JOptionPane.YES_OPTION) {
+            java.util.List<String> result = BillingService.confirmPayment(billId);
+            if (result.get(0).startsWith("Payment confirmed")) {
+                JOptionPane.showMessageDialog(this, "Payment confirmed successfully!", "Success",
+                        JOptionPane.INFORMATION_MESSAGE);
+                refresh();
+            } else {
+                JOptionPane.showMessageDialog(this, result.get(0), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
     private void deleteBill() {
         int row = billTable.getSelectedRow();
         if (row < 0) {
@@ -460,10 +536,7 @@ public class BillingPanel extends JPanel {
 
         if (confirm == JOptionPane.YES_OPTION) {
             DataStore.bills.remove(billId);
-            try {
-                BackupUtil.saveToDefault();
-            } catch (Exception ex) {
-            }
+            // Disabled backup save - using database instead
             JOptionPane.showMessageDialog(this, "Bill deleted successfully", "Success",
                     JOptionPane.INFORMATION_MESSAGE);
             refresh();
@@ -475,12 +548,26 @@ public class BillingPanel extends JPanel {
 
         double paidAmount = 0;
         double unpaidAmount = 0;
-        double totalAmount = 0;
+        double pendingAmount = 0;
+        int pendingCount = 0;
 
         for (Bill bill : DataStore.bills.values()) {
             Patient patient = DataStore.patients.get(bill.patientId);
             String patientName = patient != null ? patient.name : bill.patientId;
-            String status = bill.paid ? "PAID" : "UNPAID";
+            String status;
+            
+            if (bill.paid) {
+                status = "PAID";
+                paidAmount += bill.total;
+            } else if (bill.paymentMethod != null) {
+                status = "PENDING CONFIRMATION";
+                unpaidAmount += bill.total;
+                pendingAmount += bill.total;
+                pendingCount++;
+            } else {
+                status = "UNPAID";
+                unpaidAmount += bill.total;
+            }
 
             billModel.addRow(new Object[] {
                     bill.id,
@@ -491,17 +578,11 @@ public class BillingPanel extends JPanel {
                     bill.paymentMethod != null ? bill.paymentMethod : "-",
                     bill.updatedAt
             });
-
-            totalAmount += bill.total;
-            if (bill.paid) {
-                paidAmount += bill.total;
-            } else {
-                unpaidAmount += bill.total;
-            }
         }
 
-        String stats = String.format(Locale.US, "Total Bills: %d | Paid: $%.2f | Unpaid: $%.2f | Due Amount: $%.2f",
-                DataStore.bills.size(), paidAmount, unpaidAmount, unpaidAmount);
+        String stats = String.format(Locale.US, 
+            "Total Bills: %d | Paid: $%.2f | Unpaid: $%.2f | Pending: %d ($%.2f)",
+            DataStore.bills.size(), paidAmount, unpaidAmount, pendingCount, pendingAmount);
         statsLabel.setText(stats);
     }
 }

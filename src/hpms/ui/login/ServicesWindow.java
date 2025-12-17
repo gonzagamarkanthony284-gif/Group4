@@ -1,14 +1,17 @@
 package hpms.ui.login;
 
-import hpms.model.Service;
-import hpms.service.ServiceService;
-
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
 import java.awt.*;
-import java.util.List;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.util.Random;
+import javax.imageio.ImageIO;
 
 public class ServicesWindow extends JFrame {
+    private Random random = new Random();
     public ServicesWindow() {
         setTitle("Hospital Services | HPMS");
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
@@ -55,13 +58,11 @@ public class ServicesWindow extends JFrame {
 
         // Services grid
         JPanel servicesGridPanel = new JPanel();
-        servicesGridPanel.setLayout(new GridLayout(2, 3, 15, 15));
+        servicesGridPanel.setLayout(new GridLayout(0, 2, 15, 15)); // 2 columns, dynamic rows
         servicesGridPanel.setBackground(bg);
 
-        List<Service> services = ServiceService.getAllServices();
-        for (Service service : services) {
-            servicesGridPanel.add(createServiceCard(service, accentColor));
-        }
+        // Create informative department cards instead of service cards
+        createDepartmentCards(servicesGridPanel, accentColor);
 
         contentPanel.add(servicesGridPanel);
         contentPanel.add(Box.createVerticalGlue());
@@ -100,71 +101,197 @@ public class ServicesWindow extends JFrame {
         add(footerPanel, BorderLayout.SOUTH);
     }
 
-    private JPanel createServiceCard(Service service, Color accentColor) {
-        JPanel card = new JPanel();
-        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+    private void createDepartmentCards(JPanel gridPanel, Color accentColor) {
+        // Define department information
+        DepartmentInfo[] departments = {
+            new DepartmentInfo("Cardiology", "Heart & Vascular Care", 
+                "Comprehensive cardiac care including diagnostics, surgery, and rehabilitation. " +
+                "Our expert cardiologists provide treatment for heart conditions, " +
+                "cardiac catheterization, and preventive cardiology services.", 
+                "cardiology"),
+            new DepartmentInfo("Emergency Room", "24/7 Emergency Care", 
+                "Round-the-clock emergency medical services for trauma, acute illnesses, " +
+                "and life-threatening conditions. Staffed by board-certified emergency " +
+                "physicians and critical care nurses.", 
+                "er"),
+            new DepartmentInfo("Neurology", "Brain & Nervous System", 
+                "Specialized care for neurological disorders including stroke, epilepsy, " +
+                "Parkinson's disease, and multiple sclerosis. Advanced diagnostic and " +
+                "treatment options for nervous system conditions.", 
+                "neurology"),
+            new DepartmentInfo("Orthopedics", "Bone & Joint Care", 
+                "Complete orthopedic services including joint replacement, sports medicine, " +
+                "fracture care, and spine surgery. Our orthopedic specialists use " +
+                "minimally invasive techniques for faster recovery.", 
+                "orthopedics"),
+            new DepartmentInfo("Pediatrics", "Children's Health", 
+                "Comprehensive healthcare for infants, children, and adolescents. " +
+                "From routine check-ups to specialized pediatric care, we provide " +
+                "child-friendly medical services in a nurturing environment.", 
+                "pediatrics")
+        };
+        
+        for (DepartmentInfo dept : departments) {
+            gridPanel.add(createInformativeDepartmentCard(dept, accentColor));
+        }
+    }
+    private JPanel createInformativeDepartmentCard(DepartmentInfo dept, Color accentColor) {
+        JPanel card = new JPanel(new BorderLayout(15, 15));
         card.setBackground(Color.WHITE);
-        card.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(229, 231, 235), 1),
-                new EmptyBorder(20, 15, 20, 15)
-        ));
+        card.setBorder(new LineBorder(new Color(229, 231, 235), 1));
+        card.setPreferredSize(new Dimension(380, 220));
+        
+        // Top panel - Department image
+        JPanel imagePanel = new JPanel(new BorderLayout());
+        imagePanel.setBackground(Color.WHITE);
+        
+        JLabel imageLabel = new JLabel();
+        imageLabel.setPreferredSize(new Dimension(380, 120));
+        imageLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        imageLabel.setVerticalAlignment(SwingConstants.CENTER);
+        
+        // Load actual image from resources folder
+        Icon deptIcon = getServiceIcon(dept.imageKey);
+        if (deptIcon != null) {
+            imageLabel.setIcon(deptIcon);
+            imageLabel.setBorder(new LineBorder(new Color(229, 231, 235), 1));
+        } else {
+            // Fallback to colored circle
+            JLabel badgeLabel = new JLabel("●");
+            badgeLabel.setFont(new Font("Arial", Font.PLAIN, 40));
+            badgeLabel.setForeground(accentColor);
+            badgeLabel.setHorizontalAlignment(SwingConstants.CENTER);
+            badgeLabel.setVerticalAlignment(SwingConstants.CENTER);
+            imagePanel.add(badgeLabel, BorderLayout.CENTER);
+        }
+        
+        imagePanel.add(imageLabel, BorderLayout.CENTER);
 
-        // Service Icon/Badge
-        JLabel badgeLabel = new JLabel("●");
-        badgeLabel.setFont(new Font("Arial", Font.PLAIN, 40));
-        badgeLabel.setForeground(accentColor);
-        badgeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        card.add(badgeLabel);
-
-        card.add(Box.createVerticalStrut(10));
-
-        // Service Name
-        JLabel nameLabel = new JLabel(service.serviceName);
-        nameLabel.setFont(new Font("Arial", Font.BOLD, 16));
+        // Bottom panel - Department information
+        JPanel infoPanel = new JPanel(new BorderLayout(5, 5));
+        infoPanel.setBackground(Color.WHITE);
+        infoPanel.setBorder(new EmptyBorder(10, 15, 10, 15));
+        
+        // Department name and subtitle
+        JPanel titlePanel = new JPanel(new BorderLayout());
+        titlePanel.setBackground(Color.WHITE);
+        
+        JLabel nameLabel = new JLabel(dept.name);
+        nameLabel.setFont(new Font("Arial", Font.BOLD, 18));
         nameLabel.setForeground(new Color(30, 30, 30));
-        nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        card.add(nameLabel);
+        titlePanel.add(nameLabel, BorderLayout.NORTH);
+        
+        JLabel subtitleLabel = new JLabel(dept.subtitle);
+        subtitleLabel.setFont(new Font("Arial", Font.ITALIC, 12));
+        subtitleLabel.setForeground(accentColor);
+        titlePanel.add(subtitleLabel, BorderLayout.CENTER);
+        
+        infoPanel.add(titlePanel, BorderLayout.NORTH);
 
-        card.add(Box.createVerticalStrut(8));
-
-        // Service Description
-        JLabel descLabel = new JLabel("<html><center>" + service.description + "</center></html>");
+        // Description
+        JLabel descLabel = new JLabel("<html><div style='text-align: left; padding: 5px;'>" + dept.description + "</div></html>");
         descLabel.setFont(new Font("Arial", Font.PLAIN, 11));
         descLabel.setForeground(new Color(107, 114, 128));
-        descLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        descLabel.setMaximumSize(new java.awt.Dimension(200, 80));
-        card.add(descLabel);
+        infoPanel.add(descLabel, BorderLayout.CENTER);
 
-        card.add(Box.createVerticalStrut(12));
-
-        // Bed Information
-        JLabel bedsLabel = new JLabel("Available Beds: " + service.availableBeds + " / " + service.totalBeds);
-        bedsLabel.setFont(new Font("Arial", Font.PLAIN, 10));
-        bedsLabel.setForeground(new Color(59, 130, 246));
-        bedsLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        card.add(bedsLabel);
-
-        card.add(Box.createVerticalStrut(8));
-
-        // Status Badge
-        JLabel statusLabel = new JLabel(service.status);
-        statusLabel.setFont(new Font("Arial", Font.BOLD, 10));
-        statusLabel.setForeground(Color.WHITE);
-        statusLabel.setBackground("ACTIVE".equals(service.status) ? new Color(16, 185, 129) : new Color(107, 114, 128));
-        statusLabel.setOpaque(true);
-        statusLabel.setBorder(new EmptyBorder(4, 10, 4, 10));
-        statusLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        statusLabel.setMaximumSize(new java.awt.Dimension(80, 24));
-        card.add(statusLabel);
-
-        card.add(Box.createVerticalGlue());
+        // Combine image and info panels
+        card.add(imagePanel, BorderLayout.CENTER);
+        card.add(infoPanel, BorderLayout.SOUTH);
 
         return card;
+    }
+    
+    // Department information helper class
+    private static class DepartmentInfo {
+        String name;
+        String subtitle;
+        String description;
+        String imageKey;
+        
+        DepartmentInfo(String name, String subtitle, String description, String imageKey) {
+            this.name = name;
+            this.subtitle = subtitle;
+            this.description = description;
+            this.imageKey = imageKey;
+        }
+    }
+    
+    private Icon getServiceIcon(String department) {
+        if (department == null || department.trim().isEmpty()) {
+            return null;
+        }
+        
+        // Map department names to image files
+        String deptLower = department.toLowerCase().trim();
+        String imagePath = null;
+        
+        if (deptLower.contains("cardio")) {
+            imagePath = getRandomImage("cardiology");
+        } else if (deptLower.contains("emergency") || deptLower.contains("er")) {
+            imagePath = getRandomImage("er");
+        } else if (deptLower.contains("neuro")) {
+            imagePath = getRandomImage("neurology");
+        } else if (deptLower.contains("ortho")) {
+            imagePath = getRandomImage("orthopedics");
+        } else if (deptLower.contains("pediatric")) {
+            imagePath = getRandomImage("pediatrics");
+        }
+        
+        if (imagePath != null) {
+            try {
+                BufferedImage image = ImageIO.read(new File(imagePath));
+                // Scale image to fit the label size
+                Image scaledImage = image.getScaledInstance(380, 120, Image.SCALE_SMOOTH);
+                return new ImageIcon(scaledImage);
+            } catch (IOException e) {
+                System.err.println("Could not load image: " + imagePath + " - " + e.getMessage());
+            }
+        }
+        
+        return null;
+    }
+    
+    private String getRandomImage(String department) {
+        // Get the project root directory
+        String projectRoot = System.getProperty("user.dir");
+        String resourcesPath = projectRoot + File.separator + "resources";
+        
+        // List of available images for each department
+        String[] cardiologyImages = {"cardiology1.jpg", "cardiology2.jpg", "cardiology3.jpg", "cardiology4.jpg"};
+        String[] erImages = {"er1.jpg", "er2.jpg", "er3.jpg", "er4.jpg"};
+        String[] neurologyImages = {"neurology1.jpg", "neurology2.jpg", "neurology3.jpg", "neurology4.jpg"};
+        String[] orthopedicsImages = {"orthopedics1.jpg", "orthopedics2.jpg", "orthopedics3.jpg", "orthopedics4.jpg"};
+        String[] pediatricsImages = {"pediatrics1.jpg", "pediatrics2.jpg", "pediatrics3.jpg", "pediatrics4.jpg"};
+        
+        String[] images = null;
+        switch (department.toLowerCase()) {
+            case "cardiology":
+                images = cardiologyImages;
+                break;
+            case "er":
+                images = erImages;
+                break;
+            case "neurology":
+                images = neurologyImages;
+                break;
+            case "orthopedics":
+                images = orthopedicsImages;
+                break;
+            case "pediatrics":
+                images = pediatricsImages;
+                break;
+        }
+        
+        if (images != null && images.length > 0) {
+            String selectedImage = images[random.nextInt(images.length)];
+            return resourcesPath + File.separator + selectedImage;
+        }
+        
+        return null;
     }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            ServiceService.initializeDefaultServices();
             new ServicesWindow().setVisible(true);
         });
     }

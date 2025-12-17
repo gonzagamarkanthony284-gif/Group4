@@ -3,6 +3,10 @@ package hpms.service;
 import hpms.model.*;
 import hpms.util.*;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,22 +64,36 @@ public class PatientStatusService {
         DataStore.patientStatus.put(patientId, st);
         DataStore.statusHistory.computeIfAbsent(patientId, k -> new ArrayList<>())
                 .add(new StatusHistoryEntry(st, LocalDateTime.now(), byStaffId, note));
+        
+        // Save to database
+        try (Connection conn = DBConnection.getConnection()) {
+            String insertSql = "INSERT INTO patient_status (patient_id, status, created_at, changed_by, note) VALUES (?, ?, ?, ?, ?)";
+            try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
+                stmt.setString(1, patientId);
+                stmt.setString(2, st.toString());
+                stmt.setTimestamp(3, java.sql.Timestamp.valueOf(LocalDateTime.now()));
+                stmt.setString(4, byStaffId);
+                stmt.setString(5, note);
+                stmt.executeUpdate();
+            }
+        } catch (Exception e) {
+            System.err.println("Error saving patient status to database: " + e.getMessage());
+            // Continue with in-memory update even if database save fails
+        }
+        
         // Enhanced audit log with detailed status change information
         LogManager.log("status_change patient=" + patientId
                 + " from=" + (oldStatus != null ? oldStatus : "NEW")
                 + " to=" + st
                 + " by=" + (byStaffId != null ? byStaffId : "UNKNOWN")
                 + " note=" + (note != null && !note.isEmpty() ? note : "none"));
-        try {
-            BackupUtil.saveToDefault();
-        } catch (Exception ex) {
-        }
+        // Disabled backup save - using database instead
         out.add("Status updated to " + st);
         return out;
     }
 
     public static PatientStatus getStatus(String patientId) {
-        return DataStore.patientStatus.getOrDefault(patientId, PatientStatus.OUTPATIENT);
+        return DataStore.patientStatus.getOrDefault(patientId, PatientStatus.INPATIENT);
     }
 
     /**
@@ -89,5 +107,54 @@ public class PatientStatusService {
 
     public static List<StatusHistoryEntry> history(String patientId) {
         return DataStore.statusHistory.getOrDefault(patientId, new ArrayList<>());
+    }
+    
+    /**
+     * Load all patient status data from database into DataStore
+     */
+    public static void loadFromDatabase() {
+        try (Connection conn = DBConnection.getConnection()) {
+            if (conn == null) {
+                System.err.println("Database connection is null - cannot load patient status");
+                return;
+            }
+            
+            System.out.println("Loading patient status data from database...");
+            
+            // Load patient status data
+            String statusSql = "SELECT patient_id, status, created_at, changed_by, note FROM patient_status ORDER BY patient_id, created_at";
+            try (PreparedStatement statusStmt = conn.prepareStatement(statusSql)) {
+                ResultSet statusRs = statusStmt.executeQuery();
+                int count = 0;
+                while (statusRs.next()) {
+                    String patientId = statusRs.getString("patient_id");
+                    String statusStr = statusRs.getString("status");
+                    PatientStatus status = PatientStatus.valueOf(statusStr.toUpperCase());
+                    LocalDateTime changedAt = statusRs.getTimestamp("created_at").toLocalDateTime();
+                    String changedBy = statusRs.getString("changed_by");
+                    String note = statusRs.getString("note");
+                    
+                    // Set current status (last entry for each patient)
+                    DataStore.patientStatus.put(patientId, status);
+                    
+                    // Add to history
+                    DataStore.statusHistory.computeIfAbsent(patientId, k -> new ArrayList<>())
+                            .add(new StatusHistoryEntry(status, changedAt, changedBy, note));
+                    count++;
+                }
+                
+                System.out.println("Successfully loaded patient status data for " + DataStore.patientStatus.size() + " patients (" + count + " records) from database");
+            }
+            
+        } catch (SQLException e) {
+            System.err.println("SQL Error loading patient status data: " + e.getMessage());
+            System.err.println("SQL State: " + e.getSQLState());
+            System.err.println("Error Code: " + e.getErrorCode());
+            System.out.println("Patient status will be managed in-memory only.");
+        } catch (Exception e) {
+            System.err.println("General error loading patient status data: " + e.getMessage());
+            e.printStackTrace();
+            System.out.println("Patient status will be managed in-memory only.");
+        }
     }
 }

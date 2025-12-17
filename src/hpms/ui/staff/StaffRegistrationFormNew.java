@@ -3,7 +3,7 @@ package hpms.ui.staff;
 import hpms.auth.AuthService;
 import hpms.model.Staff;
 import hpms.model.StaffRole;
-import hpms.util.DataStore;
+import hpms.service.StaffService;
 import javax.swing.*;
 import javax.swing.border.LineBorder;
 import java.awt.*;
@@ -20,6 +20,7 @@ public class StaffRegistrationFormNew extends JDialog {
     private JComboBox<String> specCombo, nursingCombo;
     private JTextField licenseField, yearsExperienceField, yearsOfWorkField;
     private JPanel roleSpecificPanel;
+    private JLabel roleSpecInfoLabel;
     
     // Clinic schedule components
     private JCheckBox[] dayCheckboxes = new JCheckBox[7];
@@ -90,7 +91,7 @@ public class StaffRegistrationFormNew extends JDialog {
         gbc.gridx = 0;
         formPanel.add(createLabel("Role *"), gbc);
         gbc.gridx = 1;
-        roleCombo = new JComboBox<>(new String[]{"DOCTOR", "NURSE", "CASHIER"});
+        roleCombo = new JComboBox<>(new String[]{"DOCTOR", "NURSE", "CASHIER", "FRONT_DESK"});
         roleCombo.setBackground(Color.WHITE);
         roleCombo.setBorder(BorderFactory.createLineBorder(new Color(200, 210, 230)));
         formPanel.add(roleCombo, gbc);
@@ -116,16 +117,19 @@ public class StaffRegistrationFormNew extends JDialog {
         emailField.setBorder(BorderFactory.createLineBorder(new Color(200, 210, 230)));
         formPanel.add(emailField, gbc);
 
-        // Department
+        // Department - Hide for CASHIER role
         row++;
         gbc.gridy = row;
         gbc.gridx = 0;
-        formPanel.add(createLabel("Department *"), gbc);
+        JLabel deptLabel = createLabel("Department *");
+        formPanel.add(deptLabel, gbc);
         gbc.gridx = 1;
         deptCombo = new JComboBox<>();
         deptCombo.setBackground(Color.WHITE);
         deptCombo.setBorder(BorderFactory.createLineBorder(new Color(200, 210, 230)));
         formPanel.add(deptCombo, gbc);
+        // Store reference to department label for hiding later
+        deptLabel.putClientProperty("component", "departmentLabel");
 
         // License Number
         row++;
@@ -162,7 +166,7 @@ public class StaffRegistrationFormNew extends JDialog {
         gbc.gridy = row;
         gbc.gridx = 0;
         gbc.gridwidth = 2;
-        JLabel roleSpecInfoLabel = new JLabel("Role-Specific Information");
+        roleSpecInfoLabel = new JLabel("Role-Specific Information");
         roleSpecInfoLabel.setFont(new Font("Arial", Font.BOLD, 13));
         roleSpecInfoLabel.setForeground(new Color(47, 111, 237));
         formPanel.add(roleSpecInfoLabel, gbc);
@@ -254,7 +258,7 @@ public class StaffRegistrationFormNew extends JDialog {
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 0.5;
 
-        // Doctor specialization
+        // Doctor specialization - only visible for doctors
         gbc.gridy = 0;
         gbc.gridx = 0;
         JLabel docSpecLabel = new JLabel("Specialization (Doctor)");
@@ -268,7 +272,7 @@ public class StaffRegistrationFormNew extends JDialog {
         specCombo.setBorder(BorderFactory.createLineBorder(new Color(200, 210, 230)));
         roleSpecificPanel.add(specCombo, gbc);
 
-        // Nursing field
+        // Nursing field - hidden since nurses are not in dropdown
         gbc.gridy = 1;
         gbc.gridx = 0;
         JLabel nurseLabel = new JLabel("Nursing Field");
@@ -282,7 +286,11 @@ public class StaffRegistrationFormNew extends JDialog {
         nursingCombo.setBorder(BorderFactory.createLineBorder(new Color(200, 210, 230)));
         roleSpecificPanel.add(nursingCombo, gbc);
 
-        
+        // Initially hide all role-specific fields
+        docSpecLabel.setVisible(false);
+        specCombo.setVisible(false);
+        nurseLabel.setVisible(false);
+        nursingCombo.setVisible(false);
 
         return roleSpecificPanel;
     }
@@ -377,22 +385,98 @@ public class StaffRegistrationFormNew extends JDialog {
         } else if ("NURSE".equals(role)) {
             depts = new String[]{"Nursing", "ER", "Pediatrics", "Oncology", "Admin"};
         } else if ("CASHIER".equals(role)) {
-            depts = new String[]{"Billing", "Admin"};
+            // Hide department field for cashiers and set automatic billing
+            depts = new String[]{"Billing"}; // Default department for internal use
+            deptCombo.setModel(new DefaultComboBoxModel<>(depts));
+            deptCombo.setVisible(false);
+            // Hide department label too
+            JPanel parentPanel = (JPanel)deptCombo.getParent();
+            for (Component comp : parentPanel.getComponents()) {
+                if (comp instanceof JLabel && "departmentLabel".equals(((JComponent)comp).getClientProperty("component"))) {
+                    comp.setVisible(false);
+                    break;
+                }
+            }
+        } else if ("FRONT_DESK".equals(role)) {
+            depts = new String[]{"Reception", "Admissions", "Patient Services", "Admin"};
         } else {
-            depts = new String[]{"Admin", "Billing"};
+            depts = new String[]{"Admin"};
         }
 
-        deptCombo.setModel(new DefaultComboBoxModel<>(depts));
+        // Update department combo if not cashier (cashier department is already set above)
+        if (!"CASHIER".equals(role)) {
+            deptCombo.setModel(new DefaultComboBoxModel<>(depts));
+            deptCombo.setVisible(true);
+            // Show department label
+            JPanel parentPanel2 = (JPanel)deptCombo.getParent();
+            for (Component comp : parentPanel2.getComponents()) {
+                if (comp instanceof JLabel && "departmentLabel".equals(((JComponent)comp).getClientProperty("component"))) {
+                    comp.setVisible(true);
+                    break;
+                }
+            }
+        }
+
+        // Update role-specific field visibility
+        if (roleSpecificPanel != null && roleSpecInfoLabel != null) {
+            // Hide role-specific fields for FRONT_DESK and CASHIER
+            if ("FRONT_DESK".equals(role) || "CASHIER".equals(role)) {
+                roleSpecificPanel.setVisible(false);
+                roleSpecInfoLabel.setVisible(false);
+            } else if ("DOCTOR".equals(role)) {
+                // Show specialization only for doctors
+                roleSpecificPanel.setVisible(true);
+                roleSpecInfoLabel.setVisible(true);
+                roleSpecInfoLabel.setText("Doctor Information");
+                // Show doctor specialization, hide nursing
+                for (Component comp : roleSpecificPanel.getComponents()) {
+                    if (comp instanceof JLabel) {
+                        JLabel label = (JLabel) comp;
+                        if (label.getText().contains("Specialization")) {
+                            label.setVisible(true);
+                        } else if (label.getText().contains("Nursing")) {
+                            label.setVisible(false);
+                        }
+                    } else if (comp instanceof JComboBox) {
+                        comp.setVisible(true);
+                    }
+                }
+            } else if ("NURSE".equals(role)) {
+                // Show nursing fields only for nurses
+                roleSpecificPanel.setVisible(true);
+                roleSpecInfoLabel.setVisible(true);
+                roleSpecInfoLabel.setText("Nurse Information");
+                // Show nursing field, hide doctor specialization
+                for (Component comp : roleSpecificPanel.getComponents()) {
+                    if (comp instanceof JLabel) {
+                        JLabel label = (JLabel) comp;
+                        if (label.getText().contains("Specialization")) {
+                            label.setVisible(false);
+                        } else if (label.getText().contains("Nursing")) {
+                            label.setVisible(true);
+                        }
+                    } else if (comp instanceof JComboBox) {
+                        comp.setVisible(true);
+                    }
+                }
+            }
+        }
     }
 
     private void registerStaff() {
-        // Validate required fields
         String name = nameField.getText().trim();
         String phone = phoneField.getText().trim();
         String email = emailField.getText().trim();
         String license = licenseField.getText().trim();
         String role = (String) roleCombo.getSelectedItem();
-        String dept = (String) deptCombo.getSelectedItem();
+        
+        // Get department - for cashiers, set automatically to "Billing"
+        String dept;
+        if ("CASHIER".equals(role)) {
+            dept = "Billing"; // Automatic department for cashiers
+        } else {
+            dept = (String) deptCombo.getSelectedItem();
+        }
 
         if (name.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Name is required", "Validation Error", JOptionPane.WARNING_MESSAGE);
@@ -404,8 +488,9 @@ public class StaffRegistrationFormNew extends JDialog {
             return;
         }
 
-        if (!phone.matches("^[0-9+()\\-\\s]{7,25}$")) {
-            JOptionPane.showMessageDialog(this, "Phone format is invalid", "Validation Error", JOptionPane.WARNING_MESSAGE);
+        // Validate phone number (10 digits only)
+        if (!hpms.util.Validators.isValidPhoneNumber(phone)) {
+            JOptionPane.showMessageDialog(this, "Please enter a valid 10-digit phone number", "Phone Validation Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
@@ -419,16 +504,22 @@ public class StaffRegistrationFormNew extends JDialog {
             return;
         }
 
-        if (license.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "License Number is required", "Validation Error", JOptionPane.WARNING_MESSAGE);
+        // Use proper email validation
+        if (!hpms.util.Validators.isValidEmail(email)) {
+            JOptionPane.showMessageDialog(this, "Please enter a valid email address", "Email Validation Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // Generate Staff ID
-        String staffId = generateStaffId(role);
+        if (license.isEmpty()) {
+            // License is only required for doctors, not for cashiers/front desk
+            if ("DOCTOR".equals(role)) {
+                JOptionPane.showMessageDialog(this, "License Number is required for doctors", "Validation Error", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+        }
 
-        // Create Staff object
-        Staff staff = new Staff(staffId, name, StaffRole.valueOf(role), dept, LocalDateTime.now());
+        // Create Staff object without ID (StaffService will generate it)
+        Staff staff = new Staff(null, name, StaffRole.valueOf(role), dept, LocalDateTime.now());
         staff.phone = phone;
         staff.email = email;
         staff.licenseNumber = license;
@@ -478,49 +569,52 @@ public class StaffRegistrationFormNew extends JDialog {
             
         }
 
-        // Add to DataStore
-        DataStore.staff.put(staffId, staff);
+        // Add to DataStore using StaffService
+        java.util.List<String> staffResult = StaffService.add(
+            staff.name,
+            staff.role.toString(),
+            staff.department,
+            staff.specialty,
+            staff.phone,
+            staff.email,
+            staff.licenseNumber,
+            staff.qualifications,
+            "Added via Quick Registration"
+        );
+        
+        String actualStaffId = null;
+        if (!staffResult.isEmpty() && staffResult.get(0).startsWith("Staff added")) {
+            // Get the generated ID from StaffService
+            actualStaffId = staffResult.get(0).substring("Staff added ".length()).trim();
+        }
 
-        String code = AuthService.generateRandomPasswordForUI();
-        java.util.List<String> result = AuthService.register(staffId, code, role);
-        if (result != null && !result.isEmpty() && result.get(0).startsWith("User registered")) {
-            AuthService.changePasswordNoOld(staffId, code);
-            JOptionPane.showMessageDialog(this,
-                    "Staff registered successfully!\n\n" +
-                            "Staff ID: " + staffId + "\n" +
-                            "Role: " + role + "\n" +
-                            "6-Digit Login Code: " + code + "\n\n" +
-                            "Please save this information securely.",
-                    "Registration Success",
-                    JOptionPane.INFORMATION_MESSAGE);
-            dispose();
+        if (actualStaffId != null) {
+            String code = AuthService.generateRandomPasswordForUI();
+            java.util.List<String> result = AuthService.register(actualStaffId, code, role);
+            if (result != null && !result.isEmpty() && result.get(0).startsWith("User registered")) {
+                AuthService.changePasswordNoOld(actualStaffId, code);
+                JOptionPane.showMessageDialog(this,
+                        "Staff registered successfully!\n\n" +
+                                "Staff ID: " + actualStaffId + "\n" +
+                                "Role: " + role + "\n" +
+                                "6-Digit Login Code: " + code + "\n\n" +
+                                "Please save this information securely.",
+                        "Registration Success",
+                        JOptionPane.INFORMATION_MESSAGE);
+                dispose();
+            } else {
+                JOptionPane.showMessageDialog(this,
+                        "Staff registered but account creation failed.\n" +
+                                "Staff ID: " + actualStaffId,
+                        "Partial Success",
+                        JOptionPane.WARNING_MESSAGE);
+                dispose();
+            }
         } else {
             JOptionPane.showMessageDialog(this,
-                    "Staff registered but account creation failed.\n" +
-                            "Staff ID: " + staffId,
-                    "Partial Success",
-                    JOptionPane.WARNING_MESSAGE);
-            dispose();
+                    "Failed to register staff. Please try again.",
+                    "Registration Failed",
+                    JOptionPane.ERROR_MESSAGE);
         }
-    }
-
-    private String generateStaffId(String role) {
-        String prefix = "S";
-        int maxNum = 1000;
-
-        for (String id : DataStore.staff.keySet()) {
-            if (id.startsWith(prefix)) {
-                try {
-                    int num = Integer.parseInt(id.substring(1));
-                    if (num >= maxNum) {
-                        maxNum = num + 1;
-                    }
-                } catch (NumberFormatException e) {
-                    // Skip invalid IDs
-                }
-            }
-        }
-
-        return prefix + maxNum;
     }
 }

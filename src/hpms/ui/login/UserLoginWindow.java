@@ -1,8 +1,8 @@
 package hpms.ui.login;
 
-import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import javax.swing.*;
 
 public class UserLoginWindow extends JFrame {
     private final JTextField emailField = new JTextField();
@@ -93,7 +93,7 @@ public class UserLoginWindow extends JFrame {
         panel.add(Box.createVerticalStrut(15));
 
         // Services Section
-        JPanel servicesPanel = createServicesPanel();
+        JPanel servicesPanel = new hpms.ui.panels.ServicesPanel();
         panel.add(servicesPanel);
         panel.add(Box.createVerticalStrut(15));
 
@@ -205,10 +205,7 @@ public class UserLoginWindow extends JFrame {
         forgotPassword.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         forgotPassword.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
-                JOptionPane.showMessageDialog(UserLoginWindow.this,
-                        "Password reset functionality will send a reset link to your registered email address.\n" +
-                                "Please contact IT Support if you need assistance.",
-                        "Forgot Password", JOptionPane.INFORMATION_MESSAGE);
+                showPasswordResetDialog();
             }
         });
 
@@ -285,46 +282,7 @@ public class UserLoginWindow extends JFrame {
         return panel;
     }
 
-    private JPanel createServicesPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setBackground(new Color(59, 130, 246, 40));
-        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
-        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JLabel titleLabel = new JLabel("Our Services");
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        titleLabel.setForeground(Color.WHITE);
-        titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panel.add(titleLabel);
-        panel.add(Box.createVerticalStrut(12));
-
-        String[] services = {
-                "🩺 General Check-up", "🔬 Laboratory Services",
-                "🚑 Emergency Care", "👶 Pediatrics",
-                "⚕️ Surgery", "💊 Pharmacy",
-                "🫀 Cardiology", "🧠 Neurology",
-                "🦴 Orthopedics", "🩻 Radiology"
-        };
-
-        JPanel gridPanel = new JPanel(new GridLayout(5, 2, 8, 8));
-        gridPanel.setBackground(new Color(0, 0, 0, 0));
-
-        for (String service : services) {
-            JLabel serviceLabel = new JLabel(service);
-            serviceLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-            serviceLabel.setForeground(Color.WHITE);
-            serviceLabel.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
-            serviceLabel.setOpaque(true);
-            serviceLabel.setBackground(new Color(255, 255, 255, 30));
-            gridPanel.add(serviceLabel);
-        }
-
-        panel.add(gridPanel);
-        return panel;
-    }
-
-    private JPanel createContactPanel() {
+            private JPanel createContactPanel() {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBackground(new Color(59, 130, 246, 40));
@@ -451,5 +409,128 @@ public class UserLoginWindow extends JFrame {
         });
         timer.setRepeats(false);
         timer.start();
+    }
+    
+    private void showPasswordResetDialog() {
+        JDialog resetDialog = new JDialog(this, "Reset Password", true);
+        resetDialog.setSize(400, 300);
+        resetDialog.setLocationRelativeTo(this);
+        resetDialog.setLayout(new BorderLayout());
+        
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        
+        formPanel.add(new JLabel("Username:"), gbc);
+        gbc.gridx = 1;
+        JTextField usernameField = new JTextField(20);
+        formPanel.add(usernameField, gbc);
+        
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        formPanel.add(new JLabel("New Password:"), gbc);
+        gbc.gridx = 1;
+        JPasswordField newPasswordField = new JPasswordField(20);
+        formPanel.add(newPasswordField, gbc);
+        
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        formPanel.add(new JLabel("Confirm Password:"), gbc);
+        gbc.gridx = 1;
+        JPasswordField confirmPasswordField = new JPasswordField(20);
+        formPanel.add(confirmPasswordField, gbc);
+        
+        JPanel buttonPanel = new JPanel(new FlowLayout());
+        JButton resetButton = new JButton("Reset Password");
+        JButton cancelButton = new JButton("Cancel");
+        
+        resetButton.addActionListener(e -> {
+            String username = usernameField.getText().trim();
+            String newPassword = new String(newPasswordField.getPassword());
+            String confirmPassword = new String(confirmPasswordField.getPassword());
+            
+            if (username.isEmpty()) {
+                JOptionPane.showMessageDialog(resetDialog, "Please enter username", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            
+            if (newPassword.isEmpty()) {
+                JOptionPane.showMessageDialog(resetDialog, "Please enter new password", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            
+            if (!newPassword.equals(confirmPassword)) {
+                JOptionPane.showMessageDialog(resetDialog, "Passwords do not match", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            
+            if (newPassword.length() < 6) {
+                JOptionPane.showMessageDialog(resetDialog, "Password must be at least 6 characters", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            
+            // Reset password
+            boolean success = resetUserPassword(username, newPassword);
+            if (success) {
+                JOptionPane.showMessageDialog(resetDialog, "Password reset successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                resetDialog.dispose();
+            } else {
+                JOptionPane.showMessageDialog(resetDialog, "Username not found. Please check your username.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        
+        cancelButton.addActionListener(e -> resetDialog.dispose());
+        
+        buttonPanel.add(resetButton);
+        buttonPanel.add(cancelButton);
+        
+        resetDialog.add(formPanel, BorderLayout.CENTER);
+        resetDialog.add(buttonPanel, BorderLayout.SOUTH);
+        resetDialog.setVisible(true);
+    }
+    
+    private boolean resetUserPassword(String username, String newPassword) {
+        try {
+            // Check if user exists in DataStore
+            hpms.auth.User user = hpms.util.DataStore.users.get(username);
+            if (user == null) {
+                return false;
+            }
+            
+            // Generate new salt and hash
+            String salt = hpms.auth.PasswordUtil.generateSalt();
+            String hashedPassword = hpms.auth.PasswordUtil.hash(newPassword, salt);
+            
+            // Update user password
+            hpms.auth.User updatedUser = new hpms.auth.User(username, hashedPassword, salt, user.role);
+            updatedUser.status = user.status;
+            updatedUser.displayPassword = null;
+            
+            hpms.util.DataStore.users.put(username, updatedUser);
+            
+            // Also update in database if available
+            try (java.sql.Connection conn = hpms.util.DBConnection.getConnection()) {
+                if (conn != null) {
+                    String updateSql = "UPDATE users SET password = ?, salt = ? WHERE username = ?";
+                    try (java.sql.PreparedStatement stmt = conn.prepareStatement(updateSql)) {
+                        stmt.setString(1, hashedPassword);
+                        stmt.setString(2, salt);
+                        stmt.setString(3, username);
+                        stmt.executeUpdate();
+                    }
+                }
+            } catch (Exception e) {
+                // Database update failed, but DataStore update succeeded
+                System.out.println("Database update failed: " + e.getMessage());
+            }
+            
+            return true;
+        } catch (Exception e) {
+            System.out.println("Password reset error: " + e.getMessage());
+            return false;
+        }
     }
 }

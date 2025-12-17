@@ -1,8 +1,8 @@
 package hpms.ui.staff;
 
-import hpms.auth.AuthService;
 import hpms.model.Staff;
 import hpms.model.StaffRole;
+import hpms.ui.doctor.DoctorPublicProfilePanel;
 import hpms.util.DataStore;
 import javax.swing.*;
 import javax.swing.border.LineBorder;
@@ -84,17 +84,6 @@ public class StaffPanel extends JPanel {
         header.add(rightPanel, BorderLayout.EAST);
 
         return header;
-    }
-
-    private void openRegistrationForm() {
-        new StaffRegistrationFormNew(SwingUtilities.getWindowAncestor(this)).setVisible(true);
-        refreshAllTabs();
-    }
-
-    private void refreshAllTabs() {
-        for (TabPanel panel : tabPanels.values()) {
-            panel.refresh();
-        }
     }
 
     /**
@@ -186,10 +175,22 @@ public class StaffPanel extends JPanel {
             viewBtn.setFocusPainted(false);
             viewBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
             viewBtn.addActionListener(e -> viewDetails());
+            
+            // Add View Services button for doctors
+            JButton servicesBtn = new JButton("View Services");
+            servicesBtn.setFont(new Font("Arial", Font.BOLD, 11));
+            servicesBtn.setBackground(new Color(40, 167, 69));
+            servicesBtn.setForeground(Color.WHITE);
+            servicesBtn.setBorder(BorderFactory.createEmptyBorder(8, 16, 8, 16));
+            servicesBtn.setFocusPainted(false);
+            servicesBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            servicesBtn.addActionListener(e -> viewServices());
+            servicesBtn.setVisible(role == StaffRole.DOCTOR); // Only show for doctors
 
             panel.add(editBtn);
             panel.add(deleteBtn);
             panel.add(viewBtn);
+            panel.add(servicesBtn);
 
             return panel;
         }
@@ -250,6 +251,22 @@ public class StaffPanel extends JPanel {
                 new StaffProfileModal(SwingUtilities.getWindowAncestor(this), staff).setVisible(true);
             }
         }
+        
+        private void viewServices() {
+            int row = table.getSelectedRow();
+            if (row < 0) {
+                JOptionPane.showMessageDialog(this, "Please select a doctor to view services", "Selection Required", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+
+            Staff doctor = tableModel.getStaffAt(row);
+            if (doctor != null && doctor.role == StaffRole.DOCTOR) {
+                // Show the doctor's public profile which includes their services/biography
+                DoctorPublicProfilePanel.showDialog(SwingUtilities.getWindowAncestor(this), doctor);
+            } else {
+                JOptionPane.showMessageDialog(this, "Please select a doctor to view services", "Invalid Selection", JOptionPane.WARNING_MESSAGE);
+            }
+        }
 
         public String getTitle() {
             return title;
@@ -258,6 +275,17 @@ public class StaffPanel extends JPanel {
         public void refresh() {
             tableModel.refreshData();
         }
+    }
+
+    private void refreshAllTabs() {
+        for (TabPanel panel : tabPanels.values()) {
+            panel.refresh();
+        }
+    }
+
+    private void openRegistrationForm() {
+        new UnifiedRegistrationForm(SwingUtilities.getWindowAncestor(this)).setVisible(true);
+        refreshAllTabs();
     }
 
     @Override

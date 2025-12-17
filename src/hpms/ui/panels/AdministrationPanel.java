@@ -3,6 +3,7 @@ package hpms.ui.panels;
 import hpms.auth.User;
 import hpms.auth.AuthService;
 import hpms.model.UserRole;
+import hpms.model.Patient;
 import hpms.util.*;
 import hpms.ui.components.SectionHeader;
 import hpms.ui.components.Theme;
@@ -92,6 +93,10 @@ public class AdministrationPanel extends JPanel {
         styleButton(addBtn, new Color(0, 110, 102));
         addBtn.addActionListener(e -> addUserDialog());
 
+        JButton patientAccountBtn = new JButton("Create Patient Account");
+        styleButton(patientAccountBtn, new Color(52, 152, 219));
+        patientAccountBtn.addActionListener(e -> createPatientAccountDialog());
+
         JButton deactivateBtn = new JButton("Deactivate Account");
         styleButton(deactivateBtn, new Color(192, 57, 43));
         deactivateBtn.addActionListener(e -> {
@@ -110,11 +115,7 @@ public class AdministrationPanel extends JPanel {
                 hpms.auth.User user = hpms.util.DataStore.users.get(username);
                 if (user != null) {
                     user.status = "DEACTIVATED";
-                    try {
-                        hpms.util.BackupUtil.saveToDefault();
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
-                    }
+                    // Disabled backup save - using database instead
                     JOptionPane.showMessageDialog(this, "Account deactivated successfully", "Success",
                             JOptionPane.INFORMATION_MESSAGE);
                     refresh();
@@ -127,6 +128,7 @@ public class AdministrationPanel extends JPanel {
         refreshBtn.addActionListener(e -> refresh());
 
         actionPanel.add(addBtn);
+        actionPanel.add(patientAccountBtn);
         actionPanel.add(deactivateBtn);
         actionPanel.add(refreshBtn);
 
@@ -446,5 +448,150 @@ public class AdministrationPanel extends JPanel {
                     SwingUtilities.invokeLater(this::refresh);
             }
         });
+    }
+
+    private void createPatientAccountDialog() {
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Create Patient Account", true);
+        dialog.setSize(450, 350);
+        dialog.setLocationRelativeTo(SwingUtilities.getWindowAncestor(this));
+
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(new EmptyBorder(16, 16, 16, 16));
+        GridBagConstraints c = new GridBagConstraints();
+        c.insets = new Insets(8, 8, 8, 8);
+        c.fill = GridBagConstraints.HORIZONTAL;
+
+        // Patient selection
+        c.gridx = 0;
+        c.gridy = 0;
+        c.weightx = 0.3;
+        panel.add(new JLabel("Select Patient *"), c);
+        
+        c.gridx = 1;
+        c.weightx = 0.7;
+        JComboBox<String> patientCombo = new JComboBox<>();
+        patientCombo.setPreferredSize(new Dimension(200, 28));
+        
+        // Load patients from DataStore
+        if (DataStore.patients != null) {
+            for (Patient patient : DataStore.patients.values()) {
+                if (patient.isComplete) {
+                    patientCombo.addItem(patient.id + " - " + patient.name);
+                }
+            }
+        }
+        panel.add(patientCombo, c);
+
+        // Username field
+        c.gridx = 0;
+        c.gridy = 1;
+        c.weightx = 0.3;
+        panel.add(new JLabel("Username *"), c);
+        
+        c.gridx = 1;
+        c.weightx = 0.7;
+        JTextField usernameField = new JTextField();
+        usernameField.setPreferredSize(new Dimension(200, 28));
+        panel.add(usernameField, c);
+
+        // Password field
+        c.gridx = 0;
+        c.gridy = 2;
+        c.weightx = 0.3;
+        panel.add(new JLabel("Password *"), c);
+        
+        c.gridx = 1;
+        c.weightx = 0.7;
+        JPasswordField passwordField = new JPasswordField();
+        passwordField.setPreferredSize(new Dimension(200, 28));
+        panel.add(passwordField, c);
+
+        // Button panel
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
+        JButton createBtn = new JButton("Create Account");
+        JButton cancelBtn = new JButton("Cancel");
+        
+        createBtn.addActionListener(e -> {
+            System.out.println("=== Create Patient Account Button Clicked ===");
+            String selectedPatient = (String) patientCombo.getSelectedItem();
+            String username = usernameField.getText().trim();
+            String password = new String(passwordField.getPassword());
+
+            System.out.println("Selected patient: " + selectedPatient);
+            System.out.println("Username: " + username);
+            System.out.println("Password: " + (password.isEmpty() ? "[empty]" : "[provided]"));
+
+            if (selectedPatient == null || selectedPatient.isEmpty()) {
+                System.out.println("ERROR: No patient selected");
+                JOptionPane.showMessageDialog(dialog, "Please select a patient", "Validation Error",
+                        JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            if (username.isEmpty() || password.isEmpty()) {
+                System.out.println("ERROR: Missing username or password");
+                JOptionPane.showMessageDialog(dialog, "Please fill all required fields", "Validation Error",
+                        JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            // Extract patient ID from the selected item
+            String patientId = selectedPatient.split(" - ")[0];
+            Patient patient = DataStore.patients.get(patientId);
+
+            if (patient == null) {
+                System.out.println("ERROR: Patient not found with ID: " + patientId);
+                JOptionPane.showMessageDialog(dialog, "Patient not found", "Error",
+                        JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            System.out.println("Patient found: " + patient.name + " (ID: " + patientId + ")");
+
+            // Check if current user is admin before calling AuthService.register
+            System.out.println("Current user: " + (hpms.auth.AuthService.current != null ? 
+                hpms.auth.AuthService.current.username + " (" + hpms.auth.AuthService.current.role + ")" : "null"));
+
+            // Create user account for patient
+            System.out.println("About to call AuthService.register...");
+            java.util.List<String> result = hpms.auth.AuthService.register(
+                    username,
+                    password,
+                    "PATIENT"
+            );
+
+            System.out.println("AuthService.register result: " + result.get(0));
+
+            if (result.get(0).startsWith("User registered")) {
+                JOptionPane.showMessageDialog(dialog, 
+                    "Patient account created successfully!\n\n" +
+                    "Patient: " + patient.name + "\n" +
+                    "Username: " + username + "\n" +
+                    "Password: " + password + "\n\n" +
+                    "The patient can now login with these credentials.",
+                    "Success", JOptionPane.INFORMATION_MESSAGE);
+                dialog.dispose();
+                refresh();
+            } else {
+                JOptionPane.showMessageDialog(dialog, result.get(0), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        
+        cancelBtn.addActionListener(e -> dialog.dispose());
+        
+        styleButton(createBtn, new Color(0, 110, 102));
+        styleButton(cancelBtn, new Color(149, 165, 166));
+        
+        buttonPanel.add(createBtn);
+        buttonPanel.add(cancelBtn);
+
+        c.gridx = 0;
+        c.gridy = 3;
+        c.gridwidth = 2;
+        c.fill = GridBagConstraints.CENTER;
+        panel.add(buttonPanel, c);
+
+        dialog.add(panel, BorderLayout.CENTER);
+        dialog.setVisible(true);
     }
 }

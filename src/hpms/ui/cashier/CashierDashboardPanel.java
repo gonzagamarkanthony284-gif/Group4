@@ -12,13 +12,11 @@ import java.awt.*;
 import java.util.Locale;
 
 public class CashierDashboardPanel extends JPanel {
-    private final AuthSession session;
     private JTable pendingTable;
     private JLabel summaryLabel;
     private JComboBox<String> methodCombo;
 
     public CashierDashboardPanel(AuthSession session) {
-        this.session = session;
         setLayout(new BorderLayout(12, 12));
         setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
         setBackground(Color.WHITE);
@@ -81,28 +79,61 @@ public class CashierDashboardPanel extends JPanel {
     private void onPay() {
         String id = getSelectedBillId();
         if (id == null) { JOptionPane.showMessageDialog(this, "Select a bill"); return; }
-        String method = String.valueOf(methodCombo.getSelectedItem());
-        java.util.List<String> out = BillingService.pay(id, method);
-        JOptionPane.showMessageDialog(this, String.join("\n", out));
-        refresh();
+        
+        Bill bill = DataStore.bills.get(id);
+        if (bill == null) {
+            JOptionPane.showMessageDialog(this, "Invalid bill selected"); 
+            return;
+        }
+        
+        if (bill.paymentMethod != null) {
+            // This is a pending confirmation
+            int confirm = JOptionPane.showConfirmDialog(this, 
+                "Confirm payment for Bill " + id + " (" + String.format(Locale.US, "$%.2f", bill.total) + ")?\n" +
+                "Payment Method: " + bill.paymentMethod.name(),
+                "Confirm Payment", JOptionPane.YES_NO_OPTION);
+            
+            if (confirm == JOptionPane.YES_OPTION) {
+                java.util.List<String> out = BillingService.confirmPayment(id);
+                JOptionPane.showMessageDialog(this, String.join("\n", out));
+                refresh();
+            }
+        } else {
+            // This is a regular payment - set method and pay
+            String method = String.valueOf(methodCombo.getSelectedItem());
+            java.util.List<String> out = BillingService.pay(id, method);
+            JOptionPane.showMessageDialog(this, String.join("\n", out));
+            refresh();
+        }
     }
 
     public void refresh() {
-        DefaultTableModel m = new DefaultTableModel(new String[]{"Bill ID","Patient","Total","Created","Status"}, 0) {
+        DefaultTableModel m = new DefaultTableModel(new String[]{"Bill ID","Patient","Total","Method","Created","Status"}, 0) {
             public boolean isCellEditable(int r, int c) { return false; }
         };
         double unpaid = 0;
         int pendingCount = 0;
+        int pendingConfirmationCount = 0;
         for (Bill b : DataStore.bills.values()) {
             if (!b.paid) {
                 Patient p = DataStore.patients.get(b.patientId);
-                m.addRow(new Object[]{b.id, p != null ? p.name : b.patientId, String.format(Locale.US, "%.2f", b.total), b.createdAt, "UNPAID"});
+                String status;
+                if (b.paymentMethod != null) {
+                    status = "PENDING CONFIRMATION";
+                    pendingConfirmationCount++;
+                } else {
+                    status = "UNPAID";
+                    pendingCount++;
+                }
+                String method = b.paymentMethod != null ? b.paymentMethod.name() : "Not set";
+                m.addRow(new Object[]{b.id, p != null ? p.name : b.patientId, 
+                    String.format(Locale.US, "%.2f", b.total), method, b.createdAt, status});
                 unpaid += b.total;
-                pendingCount++;
             }
         }
         pendingTable.setModel(m);
-        summaryLabel.setText(String.format(Locale.US, "Pending: %d | Due: $%.2f", pendingCount, unpaid));
+        summaryLabel.setText(String.format(Locale.US, "Unpaid: %d | Pending Confirmation: %d | Total Due: $%.2f", 
+            pendingCount, pendingConfirmationCount, unpaid));
     }
 }
 

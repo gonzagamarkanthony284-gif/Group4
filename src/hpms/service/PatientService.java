@@ -5,8 +5,191 @@ import hpms.util.*;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.sql.*;
 
 public class PatientService {
+
+    private static void ensurePatientClinicalColumns(Connection conn) {
+        if (conn == null)
+            return;
+        try (PreparedStatement stmt = conn.prepareStatement("ALTER TABLE patients ADD COLUMN email VARCHAR(255)")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+        try (PreparedStatement stmt = conn.prepareStatement("ALTER TABLE patients ADD COLUMN patient_type VARCHAR(30)")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+        try (PreparedStatement stmt = conn.prepareStatement("ALTER TABLE patients ADD COLUMN allergies TEXT")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+        try (PreparedStatement stmt = conn.prepareStatement("ALTER TABLE patients ADD COLUMN medications TEXT")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+        try (PreparedStatement stmt = conn.prepareStatement("ALTER TABLE patients ADD COLUMN past_medical_history TEXT")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+
+        // Clinical snapshot
+        try (PreparedStatement stmt = conn.prepareStatement("ALTER TABLE patients ADD COLUMN height_cm DOUBLE")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+        try (PreparedStatement stmt = conn.prepareStatement("ALTER TABLE patients ADD COLUMN weight_kg DOUBLE")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+        try (PreparedStatement stmt = conn.prepareStatement("ALTER TABLE patients ADD COLUMN blood_pressure VARCHAR(50)")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+
+        try (PreparedStatement stmt = conn.prepareStatement("ALTER TABLE patients ADD COLUMN xray_file_path TEXT")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+        try (PreparedStatement stmt = conn.prepareStatement("ALTER TABLE patients ADD COLUMN xray_status VARCHAR(50)")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+        try (PreparedStatement stmt = conn.prepareStatement("ALTER TABLE patients ADD COLUMN xray_summary TEXT")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+
+        try (PreparedStatement stmt = conn.prepareStatement("ALTER TABLE patients ADD COLUMN stool_file_path TEXT")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+        try (PreparedStatement stmt = conn.prepareStatement("ALTER TABLE patients ADD COLUMN stool_status VARCHAR(50)")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+        try (PreparedStatement stmt = conn.prepareStatement("ALTER TABLE patients ADD COLUMN stool_summary TEXT")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+
+        try (PreparedStatement stmt = conn.prepareStatement("ALTER TABLE patients ADD COLUMN urine_file_path TEXT")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+        try (PreparedStatement stmt = conn.prepareStatement("ALTER TABLE patients ADD COLUMN urine_status VARCHAR(50)")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+        try (PreparedStatement stmt = conn.prepareStatement("ALTER TABLE patients ADD COLUMN urine_summary TEXT")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+
+        try (PreparedStatement stmt = conn.prepareStatement("ALTER TABLE patients ADD COLUMN blood_file_path TEXT")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+        try (PreparedStatement stmt = conn.prepareStatement("ALTER TABLE patients ADD COLUMN blood_status VARCHAR(50)")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+        try (PreparedStatement stmt = conn.prepareStatement("ALTER TABLE patients ADD COLUMN blood_summary TEXT")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+    }
+
+    private static void ensurePatientProgressNotesTable(Connection conn) {
+        if (conn == null)
+            return;
+        try (PreparedStatement stmt = conn.prepareStatement(
+                "CREATE TABLE IF NOT EXISTS patient_progress_notes (" +
+                        "id INT AUTO_INCREMENT PRIMARY KEY," +
+                        "patient_id VARCHAR(20) NOT NULL," +
+                        "note_text TEXT NOT NULL," +
+                        "created_by VARCHAR(20)," +
+                        "created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+                        "INDEX idx_ppn_patient (patient_id)" +
+                        ")")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+
+        // Migration: older installations may have created this table without note_text
+        try (PreparedStatement stmt = conn.prepareStatement(
+                "ALTER TABLE patient_progress_notes ADD COLUMN note_text TEXT NOT NULL")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+
+        // Migration: older installations may have created this table without created_by
+        try (PreparedStatement stmt = conn.prepareStatement(
+                "ALTER TABLE patient_progress_notes ADD COLUMN created_by VARCHAR(20)")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+
+        // Migration: older installations may have a legacy NOT NULL 'note' column that breaks inserts
+        // (because newer code inserts into note_text only). Make it nullable.
+        try (PreparedStatement stmt = conn.prepareStatement(
+                "ALTER TABLE patient_progress_notes MODIFY COLUMN note TEXT NULL")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+
+        // Optional backfill if an older column name exists
+        try (PreparedStatement stmt = conn.prepareStatement(
+                "UPDATE patient_progress_notes SET note_text = note WHERE (note_text IS NULL OR note_text = '')")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+    }
+
+    private static void addProgressNoteToDatabase(Connection conn, String patientId, String byStaffId, String note) {
+        if (conn == null)
+            return;
+        if (patientId == null || patientId.trim().isEmpty())
+            return;
+        if (note == null || note.trim().isEmpty())
+            return;
+        ensurePatientProgressNotesTable(conn);
+        String sql = "INSERT INTO patient_progress_notes (patient_id, note_text, created_by, created_at) VALUES (?, ?, ?, ?)";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, patientId);
+            stmt.setString(2, note.trim());
+            stmt.setString(3, byStaffId);
+            stmt.setTimestamp(4, java.sql.Timestamp.valueOf(java.time.LocalDateTime.now()));
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("Error saving progress note: " + e.getMessage());
+        }
+    }
+
+    private static void loadProgressNotesFromDatabase(Connection conn) {
+        if (conn == null)
+            return;
+        ensurePatientProgressNotesTable(conn);
+        String sql = "SELECT patient_id, note_text, created_by, created_at FROM patient_progress_notes ORDER BY created_at ASC";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                String pid = rs.getString("patient_id");
+                Patient p = DataStore.patients.get(pid);
+                if (p == null)
+                    continue;
+                String noteText = rs.getString("note_text");
+                String by = rs.getString("created_by");
+                java.sql.Timestamp ts = rs.getTimestamp("created_at");
+                String at = ts != null ? ts.toLocalDateTime().toString() : java.time.LocalDateTime.now().toString();
+                if (noteText != null && !noteText.trim().isEmpty()) {
+                    p.progressNotes.add(at + " by " + (by == null ? "unknown" : by) + ": " + noteText.trim());
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error loading progress notes: " + e.getMessage());
+        }
+    }
     public static List<String> add(String name, String age, String birthday, String gender, String contact,
             String address, String patientType) {
         List<String> out = new ArrayList<>();
@@ -58,6 +241,17 @@ public class PatientService {
         String id = IDGenerator.nextId("P");
         Patient p = new Patient(id, name.trim(), a, birthday.trim(), g, contact.trim(), address.trim(),
                 LocalDateTime.now());
+        // If contact was stored as "<phone> | <email>", keep email separately as well
+        if (p.contact != null) {
+            String[] parts = p.contact.split("\\|");
+            for (String part : parts) {
+                String candidate = part == null ? null : part.trim();
+                if (candidate != null && hpms.util.Validators.isValidEmail(candidate)) {
+                    p.email = candidate;
+                    break;
+                }
+            }
+        }
         p.patientType = ptType;
         p.validateCompleteness(); // Check if all required fields are complete
         DataStore.patients.put(id, p);
@@ -69,18 +263,22 @@ public class PatientService {
         } else if (ptType.equals("EMERGENCY")) {
             initialStatus = PatientStatus.EMERGENCY;
         } else {
-            initialStatus = PatientStatus.OUTPATIENT;
+            // Don't auto-set to OUTPATIENT - leave status unset until explicitly set
+            initialStatus = null;
         }
-        DataStore.patientStatus.put(id, initialStatus);
-        DataStore.statusHistory.computeIfAbsent(id, k -> new ArrayList<>())
-                .add(new StatusHistoryEntry(initialStatus, LocalDateTime.now(), "SYSTEM", "Initial registration"));
+        if (initialStatus != null) {
+            DataStore.patientStatus.put(id, initialStatus);
+            DataStore.statusHistory.computeIfAbsent(id, k -> new ArrayList<>())
+                    .add(new StatusHistoryEntry(initialStatus, LocalDateTime.now(), "SYSTEM", "Initial registration"));
+        }
 
         LogManager.log("add_patient id=" + id + " complete=" + p.isComplete + " type=" + p.patientType
                 + " initial_status=" + initialStatus);
-        try {
-            BackupUtil.saveToDefault();
-        } catch (Exception ex) {
-        }
+        
+        // Also save to database
+        saveToDatabase(p);
+        
+        // Disabled backup save - using database instead
         out.add("Patient created " + id);
         return out;
     }
@@ -150,10 +348,11 @@ public class PatientService {
         if (policyRelationship != null)
             p.policyRelationship = policyRelationship.trim();
         LogManager.log("add_patient_extended " + id);
-        try {
-            BackupUtil.saveToDefault();
-        } catch (Exception ex) {
-        }
+        
+        // Also save to database
+        saveToDatabase(p);
+        
+        // Disabled backup save - using database instead
         out.clear();
         out.add("Patient created " + id);
         return out;
@@ -272,10 +471,7 @@ public class PatientService {
             p.policyRelationship = policyRelationship.trim();
         p.validateCompleteness(); // Re-validate after editing extended fields
         LogManager.log("edit_patient_extended " + id + " complete=" + p.isComplete);
-        try {
-            BackupUtil.saveToDefault();
-        } catch (Exception ex) {
-        }
+        // Disabled backup save - using database instead
         out.clear();
         out.add("Patient updated " + id);
         return out;
@@ -292,10 +488,7 @@ public class PatientService {
             }
         }
         if (changed) {
-            try {
-                BackupUtil.saveToDefault();
-            } catch (Exception ex) {
-            }
+            // Disabled backup save - using database instead
         }
     }
 
@@ -393,10 +586,48 @@ public class PatientService {
         LogManager.log("add_clinical " + id + " by " + (byStaffId == null ? "?" : byStaffId));
         // notify listeners so dashboards and other UI can refresh
         notifyClinicalUpdate(id);
-        try {
-            BackupUtil.saveToDefault();
-        } catch (Exception ex) {
+
+        // Persist snapshot + note
+        try (Connection conn = DBConnection.getConnection()) {
+            ensurePatientClinicalColumns(conn);
+            saveToDatabase(p);
+            if (note != null && !note.trim().isEmpty()) {
+                addProgressNoteToDatabase(conn, id, byStaffId, note);
+            }
+
+            String uploadedBy = (byStaffId == null || byStaffId.trim().isEmpty()) ? "SYSTEM" : byStaffId.trim();
+            if (xrayPath != null && !xrayPath.trim().isEmpty()) {
+                java.io.File f = new java.io.File(xrayPath.trim());
+                hpms.service.AttachmentService.uploadAttachment(id, f.getName(), f.getAbsolutePath(),
+                        "X-ray", "Imaging", xraySummary == null ? "" : xraySummary, uploadedBy);
+            }
+            if (stoolPath != null && !stoolPath.trim().isEmpty()) {
+                java.io.File f = new java.io.File(stoolPath.trim());
+                hpms.service.AttachmentService.uploadAttachment(id, f.getName(), f.getAbsolutePath(),
+                        "Lab Results", "Laboratory", stoolSummary == null ? "" : stoolSummary, uploadedBy);
+            }
+            if (urinePath != null && !urinePath.trim().isEmpty()) {
+                java.io.File f = new java.io.File(urinePath.trim());
+                hpms.service.AttachmentService.uploadAttachment(id, f.getName(), f.getAbsolutePath(),
+                        "Lab Results", "Laboratory", urineSummary == null ? "" : urineSummary, uploadedBy);
+            }
+            if (bloodPath != null && !bloodPath.trim().isEmpty()) {
+                java.io.File f = new java.io.File(bloodPath.trim());
+                hpms.service.AttachmentService.uploadAttachment(id, f.getName(), f.getAbsolutePath(),
+                        "Lab Results", "Laboratory", bloodSummary == null ? "" : bloodSummary, uploadedBy);
+            }
+            if (otherAttachments != null && !otherAttachments.isEmpty()) {
+                for (String a : otherAttachments) {
+                    if (a == null || a.trim().isEmpty())
+                        continue;
+                    java.io.File f = new java.io.File(a.trim());
+                    hpms.service.AttachmentService.uploadAttachment(id, f.getName(), f.getAbsolutePath(),
+                            "General Document", "Documentation", "Uploaded via clinical notes", uploadedBy);
+                }
+            }
+        } catch (SQLException ignored) {
         }
+
         out.add("Clinical info updated " + id);
         return out;
     }
@@ -462,13 +693,22 @@ public class PatientService {
         p.age = a;
         p.gender = g;
         p.contact = contact.trim();
+        // Keep email separately if present in contact string
+        p.email = "";
+        if (p.contact != null) {
+            String[] parts = p.contact.split("\\|");
+            for (String part : parts) {
+                String candidate = part == null ? null : part.trim();
+                if (candidate != null && hpms.util.Validators.isValidEmail(candidate)) {
+                    p.email = candidate;
+                    break;
+                }
+            }
+        }
         p.address = address.trim();
         p.validateCompleteness(); // Re-validate completeness after edit
         LogManager.log("edit_patient " + id + " complete=" + p.isComplete);
-        try {
-            BackupUtil.saveToDefault();
-        } catch (Exception ex) {
-        }
+        // Disabled backup save - using database instead
         out.add("Patient updated " + id);
         return out;
     }
@@ -485,6 +725,15 @@ public class PatientService {
             out.add("Error: Patient is already inactive");
             return out;
         }
+        
+        // Check if patient is manually set to outpatient before allowing deactivation
+        PatientStatus currentStatus = PatientStatusService.getStatus(id);
+        if (currentStatus != PatientStatus.OUTPATIENT) {
+            out.add("Error: Patient must be manually set to OUTPATIENT status before deactivation");
+            out.add("Current status: " + (currentStatus != null ? currentStatus.name() : "UNKNOWN"));
+            return out;
+        }
+        
         p.isActive = false;
         // Clear room assignment if patient is in a room
         String clearedRoom = null;
@@ -502,10 +751,7 @@ public class PatientService {
                 + " status=" + status
                 + " room_cleared=" + (clearedRoom != null ? clearedRoom : "none")
                 + " reason=manual_deactivation");
-        try {
-            BackupUtil.saveToDefault();
-        } catch (Exception ex) {
-        }
+        // Disabled backup save - using database instead
         out.add("Patient deactivated " + id + " - Record preserved in database");
         return out;
     }
@@ -529,10 +775,7 @@ public class PatientService {
                 + " name=" + p.name
                 + " status=" + status
                 + " reason=manual_reactivation");
-        try {
-            BackupUtil.saveToDefault();
-        } catch (Exception ex) {
-        }
+        // Disabled backup save - using database instead
         out.add("Patient reactivated " + id);
         return out;
     }
@@ -607,16 +850,269 @@ public class PatientService {
         // Log the action
         LogManager.log("remove_patient_from_doctor " + patientId + " from " + doctorId);
 
-        // Save to backup
-        try {
-            BackupUtil.saveToDefault();
-        } catch (Exception ex) {
-            out.add("Warning: Changes saved but backup failed");
-            return out;
-        }
+        // Disabled backup save - using database instead
 
         out.add("Patient successfully removed from doctor assignment. " + appointmentsDeleted
                 + " appointment(s) deleted. Insurance information cleared.");
         return out;
+    }
+    
+    /**
+     * Save patient to database
+     */
+    private static void saveToDatabase(Patient patient) {
+        try (Connection conn = DBConnection.getConnection()) {
+            ensurePatientClinicalColumns(conn);
+
+            // Check if patient already exists in database
+            String checkSql = "SELECT id FROM patients WHERE id = ?";
+            boolean exists = false;
+            try (PreparedStatement checkStmt = conn.prepareStatement(checkSql)) {
+                checkStmt.setString(1, patient.id);
+                ResultSet rs = checkStmt.executeQuery();
+                exists = rs.next();
+            }
+            
+            String sql;
+            if (exists) {
+                sql = "UPDATE patients SET name=?, age=?, gender=?, contact=?, address=?, email=?, registration_type=?, is_active=?, "
+                        + "patient_type=?, allergies=?, medications=?, past_medical_history=?, "
+                        + "height_cm=?, weight_kg=?, blood_pressure=?, "
+                        + "xray_file_path=?, xray_status=?, xray_summary=?, "
+                        + "stool_file_path=?, stool_status=?, stool_summary=?, "
+                        + "urine_file_path=?, urine_status=?, urine_summary=?, "
+                        + "blood_file_path=?, blood_status=?, blood_summary=? "
+                        + "WHERE id=?";
+            } else {
+                sql = "INSERT INTO patients (id, name, age, gender, contact, address, email, registration_type, is_active, created_at, "
+                        + "patient_type, allergies, medications, past_medical_history, "
+                        + "height_cm, weight_kg, blood_pressure, "
+                        + "xray_file_path, xray_status, xray_summary, "
+                        + "stool_file_path, stool_status, stool_summary, "
+                        + "urine_file_path, urine_status, urine_summary, "
+                        + "blood_file_path, blood_status, blood_summary) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            }
+            
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                if (exists) {
+                    int idx = 1;
+                    stmt.setString(idx++, patient.name);
+                    stmt.setInt(idx++, patient.age);
+                    stmt.setString(idx++, patient.gender != null ? patient.gender.toString() : null);
+                    stmt.setString(idx++, patient.contact);
+                    stmt.setString(idx++, patient.address);
+                    stmt.setString(idx++, patient.email);
+                    stmt.setString(idx++, patient.registrationType != null ? patient.registrationType : "Walk-in Patient");
+                    stmt.setBoolean(idx++, patient.isActive);
+
+                    stmt.setString(idx++, patient.patientType);
+                    stmt.setString(idx++, patient.allergies);
+                    stmt.setString(idx++, patient.medications);
+                    stmt.setString(idx++, patient.pastMedicalHistory);
+
+                    if (patient.heightCm == null)
+                        stmt.setNull(idx++, java.sql.Types.DOUBLE);
+                    else
+                        stmt.setDouble(idx++, patient.heightCm);
+                    if (patient.weightKg == null)
+                        stmt.setNull(idx++, java.sql.Types.DOUBLE);
+                    else
+                        stmt.setDouble(idx++, patient.weightKg);
+                    stmt.setString(idx++, patient.bloodPressure);
+
+                    stmt.setString(idx++, patient.xrayFilePath);
+                    stmt.setString(idx++, patient.xrayStatus);
+                    stmt.setString(idx++, patient.xraySummary);
+                    stmt.setString(idx++, patient.stoolFilePath);
+                    stmt.setString(idx++, patient.stoolStatus);
+                    stmt.setString(idx++, patient.stoolSummary);
+                    stmt.setString(idx++, patient.urineFilePath);
+                    stmt.setString(idx++, patient.urineStatus);
+                    stmt.setString(idx++, patient.urineSummary);
+                    stmt.setString(idx++, patient.bloodFilePath);
+                    stmt.setString(idx++, patient.bloodStatus);
+                    stmt.setString(idx++, patient.bloodSummary);
+
+                    stmt.setString(idx++, patient.id);
+                } else {
+                    int idx = 1;
+                    stmt.setString(idx++, patient.id);
+                    stmt.setString(idx++, patient.name);
+                    stmt.setInt(idx++, patient.age);
+                    stmt.setString(idx++, patient.gender != null ? patient.gender.toString() : null);
+                    stmt.setString(idx++, patient.contact);
+                    stmt.setString(idx++, patient.address);
+                    stmt.setString(idx++, patient.email);
+                    stmt.setString(idx++, patient.registrationType != null ? patient.registrationType : "Walk-in Patient");
+                    stmt.setBoolean(idx++, patient.isActive);
+                    stmt.setTimestamp(idx++, java.sql.Timestamp.valueOf(patient.createdAt));
+
+                    stmt.setString(idx++, patient.patientType);
+                    stmt.setString(idx++, patient.allergies);
+                    stmt.setString(idx++, patient.medications);
+                    stmt.setString(idx++, patient.pastMedicalHistory);
+
+                    if (patient.heightCm == null)
+                        stmt.setNull(idx++, java.sql.Types.DOUBLE);
+                    else
+                        stmt.setDouble(idx++, patient.heightCm);
+                    if (patient.weightKg == null)
+                        stmt.setNull(idx++, java.sql.Types.DOUBLE);
+                    else
+                        stmt.setDouble(idx++, patient.weightKg);
+                    stmt.setString(idx++, patient.bloodPressure);
+
+                    stmt.setString(idx++, patient.xrayFilePath);
+                    stmt.setString(idx++, patient.xrayStatus);
+                    stmt.setString(idx++, patient.xraySummary);
+                    stmt.setString(idx++, patient.stoolFilePath);
+                    stmt.setString(idx++, patient.stoolStatus);
+                    stmt.setString(idx++, patient.stoolSummary);
+                    stmt.setString(idx++, patient.urineFilePath);
+                    stmt.setString(idx++, patient.urineStatus);
+                    stmt.setString(idx++, patient.urineSummary);
+                    stmt.setString(idx++, patient.bloodFilePath);
+                    stmt.setString(idx++, patient.bloodStatus);
+                    stmt.setString(idx++, patient.bloodSummary);
+                }
+                
+                stmt.executeUpdate();
+                LogManager.log("patient_db_" + (exists ? "update" : "insert") + " " + patient.id);
+            }
+        } catch (SQLException e) {
+            System.err.println("Error saving patient to database: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+                /**
+     * Load all patients from database into DataStore
+     */
+    public static void loadFromDatabase() {
+        try (Connection conn = DBConnection.getConnection()) {
+            ensurePatientClinicalColumns(conn);
+            ensurePatientProgressNotesTable(conn);
+
+            // Find the highest patient ID to sync pCounter
+            int maxId = 1000; // Start from default
+            String maxIdSql = "SELECT id FROM patients WHERE id LIKE 'P%' ORDER BY CAST(SUBSTRING(id, 2) AS UNSIGNED) DESC LIMIT 1";
+            try (PreparedStatement maxStmt = conn.prepareStatement(maxIdSql)) {
+                ResultSet maxRs = maxStmt.executeQuery();
+                if (maxRs.next()) {
+                    String highestId = maxRs.getString("id");
+                    if (highestId != null && highestId.startsWith("P")) {
+                        try {
+                            int idNum = Integer.parseInt(highestId.substring(1));
+                            maxId = Math.max(maxId, idNum);
+                        } catch (NumberFormatException e) {
+                            // Ignore if ID format is unexpected
+                        }
+                    }
+                }
+            }
+            
+            // Sync pCounter with highest existing ID
+            DataStore.pCounter.set(maxId);
+            
+            String sql = "SELECT id, name, age, gender, contact, address, registration_type, is_active, created_at, "
+                    + "email, patient_type, allergies, medications, past_medical_history, "
+                    + "height_cm, weight_kg, blood_pressure, "
+                    + "xray_file_path, xray_status, xray_summary, "
+                    + "stool_file_path, stool_status, stool_summary, "
+                    + "urine_file_path, urine_status, urine_summary, "
+                    + "blood_file_path, blood_status, blood_summary "
+                    + "FROM patients";
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                ResultSet rs = stmt.executeQuery();
+                DataStore.patients.clear(); // Clear existing data
+                while (rs.next()) {
+                    String id = rs.getString("id");
+                    String name = rs.getString("name");
+                    int age = rs.getInt("age");
+                    String birthday = "2000-01-01"; // Default birthday for database-loaded patients
+                    // Fix case mismatch: database stores "MALE" but enum has "Male"
+                    String genderStr = rs.getString("gender");
+                    Gender gender;
+                    try {
+                        gender = Gender.valueOf(genderStr);
+                    } catch (IllegalArgumentException e) {
+                        // Handle case mismatch (e.g., "MALE" -> "Male")
+                        gender = switch (genderStr.toUpperCase()) {
+                            case "MALE" -> Gender.Male;
+                            case "FEMALE" -> Gender.Female;
+                            case "LGBTQ_PLUS" -> Gender.LGBTQ_PLUS;
+                            case "OTHER" -> Gender.OTHER;
+                            default -> Gender.OTHER;
+                        };
+                    }
+                    String contact = rs.getString("contact");
+                    String address = rs.getString("address");
+                    LocalDateTime createdAt = rs.getTimestamp("created_at").toLocalDateTime();
+                    
+                    Patient patient = new Patient(id, name, age, birthday, gender, contact, address, createdAt);
+                    patient.email = rs.getString("email");
+                    if ((patient.email == null || patient.email.trim().isEmpty()) && patient.contact != null) {
+                        String[] parts = patient.contact.split("\\|");
+                        for (String part : parts) {
+                            String candidate = part == null ? null : part.trim();
+                            if (candidate != null && hpms.util.Validators.isValidEmail(candidate)) {
+                                patient.email = candidate;
+                                break;
+                            }
+                        }
+                    }
+                    patient.registrationType = rs.getString("registration_type");
+                    patient.isActive = rs.getBoolean("is_active");
+
+                    patient.patientType = rs.getString("patient_type");
+                    if (patient.patientType == null || patient.patientType.trim().isEmpty())
+                        patient.patientType = "OUTPATIENT";
+
+                    patient.allergies = rs.getString("allergies");
+                    patient.medications = rs.getString("medications");
+                    patient.pastMedicalHistory = rs.getString("past_medical_history");
+
+                    try {
+                        double h = rs.getDouble("height_cm");
+                        patient.heightCm = rs.wasNull() ? null : h;
+                    } catch (Exception ignored) {
+                        patient.heightCm = null;
+                    }
+                    try {
+                        double w = rs.getDouble("weight_kg");
+                        patient.weightKg = rs.wasNull() ? null : w;
+                    } catch (Exception ignored) {
+                        patient.weightKg = null;
+                    }
+                    patient.bloodPressure = rs.getString("blood_pressure");
+
+                    patient.xrayFilePath = rs.getString("xray_file_path");
+                    patient.xrayStatus = rs.getString("xray_status");
+                    patient.xraySummary = rs.getString("xray_summary");
+                    patient.stoolFilePath = rs.getString("stool_file_path");
+                    patient.stoolStatus = rs.getString("stool_status");
+                    patient.stoolSummary = rs.getString("stool_summary");
+                    patient.urineFilePath = rs.getString("urine_file_path");
+                    patient.urineStatus = rs.getString("urine_status");
+                    patient.urineSummary = rs.getString("urine_summary");
+                    patient.bloodFilePath = rs.getString("blood_file_path");
+                    patient.bloodStatus = rs.getString("blood_status");
+                    patient.bloodSummary = rs.getString("blood_summary");
+                    
+                    DataStore.patients.put(id, patient);
+                    LogManager.log("patient_db_load " + id);
+                }
+                // Load progress notes after patients exist
+                loadProgressNotesFromDatabase(conn);
+                System.out.println("Loaded " + DataStore.patients.size() + " patients from database");
+            }
+        } catch (SQLException e) {
+            System.err.println("Error loading patients from database: " + e.getMessage());
+            e.printStackTrace();
+        } catch (Exception e) {
+            System.err.println("Unexpected error loading patients: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 }

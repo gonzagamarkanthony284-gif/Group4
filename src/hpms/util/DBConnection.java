@@ -1,18 +1,24 @@
 package hpms.util;
 
+import hpms.config.DatabaseConfig;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
+/**
+ * Database connection utility class
+ * Uses DatabaseConfig for connection settings
+ */
 public class DBConnection {
-    private static final String URL = "jdbc:mysql://localhost:3306/hpms_db?useSSL=false&serverTimezone=UTC";
-    private static final String USER = "root";
-    private static final String PASS = "";
-
+    
     public static Connection getConnection() {
         try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            return DriverManager.getConnection(URL, USER, PASS);
+            Class.forName(DatabaseConfig.JDBC_DRIVER);
+            return DriverManager.getConnection(
+                DatabaseConfig.JDBC_URL, 
+                DatabaseConfig.JDBC_USER, 
+                DatabaseConfig.JDBC_PASSWORD
+            );
         } catch (ClassNotFoundException e) {
             System.err.println("MySQL JDBC Driver not found!");
             e.printStackTrace();

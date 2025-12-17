@@ -68,9 +68,10 @@ public class PrescriptionPanel extends JPanel {
     private void refreshTable() {
         tableModel.setRowCount(0);
         for (Prescription p : DataStore.prescriptions.values()) {
-            Medicine m = DataStore.medicines.get(p.medicineId);
+            // Use medicineId field as medicine name since we removed the medicine system
+            String medName = p.medicineId != null ? p.medicineId : "Unknown";
             tableModel.addRow(new Object[]{
-                p.id, p.patientId, p.doctorId, m != null ? m.name : "Unknown",
+                p.id, p.patientId, p.doctorId, medName,
                 p.dosage, p.frequency, p.durationDays, p.isActive ? "Active" : "Discontinued"
             });
         }

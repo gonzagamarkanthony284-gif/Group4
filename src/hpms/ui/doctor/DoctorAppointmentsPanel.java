@@ -361,10 +361,7 @@ public class DoctorAppointmentsPanel extends JPanel {
             a.notes = (a.notes == null ? "" : a.notes.replaceAll("(?i)pending", "")).trim();
             if (a.notes.isEmpty())
                 a.notes = "Accepted";
-            try {
-                hpms.util.BackupUtil.saveToDefault();
-            } catch (Exception ex) {
-            }
+            // Disabled backup save - using database instead
             JOptionPane.showMessageDialog(this, "Request accepted", "Success", JOptionPane.INFORMATION_MESSAGE);
             refreshRequestsTable();
         }

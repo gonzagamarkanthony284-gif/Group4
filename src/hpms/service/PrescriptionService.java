@@ -8,12 +8,12 @@ import java.util.*;
 public class PrescriptionService {
     
     public static List<String> prescribe(String appointmentId, String patientId, String doctorId, 
-                                        String medicineId, String dosage, String frequency, 
+                                        String medicineName, String dosage, String frequency, 
                                         int durationDays, String indication) {
         List<String> out = new ArrayList<>();
         
         if (Validators.empty(appointmentId) || Validators.empty(patientId) || Validators.empty(doctorId) || 
-            Validators.empty(medicineId) || Validators.empty(dosage) || Validators.empty(frequency)) {
+            Validators.empty(medicineName) || Validators.empty(dosage) || Validators.empty(frequency)) {
             out.add("Error: Missing required fields");
             return out;
         }
@@ -28,13 +28,8 @@ public class PrescriptionService {
             return out;
         }
         
-        if (DataStore.medicines.get(medicineId) == null) {
-            out.add("Error: Medicine not found");
-            return out;
-        }
-        
         String id = IDGenerator.nextId("PR");
-        Prescription p = new Prescription(id, appointmentId, patientId, doctorId, medicineId, 
+        Prescription p = new Prescription(id, appointmentId, patientId, doctorId, medicineName, 
                                          dosage, frequency, durationDays, LocalDateTime.now());
         p.indication = indication;
         
@@ -49,8 +44,8 @@ public class PrescriptionService {
         
         for (Prescription p : DataStore.prescriptions.values()) {
             if (p.patientId.equals(patientId) && p.isActive) {
-                Medicine med = DataStore.medicines.get(p.medicineId);
-                String medName = med != null ? med.name : "Unknown";
+                // Use medicineId field as medicine name since we removed the medicine system
+                String medName = p.medicineId != null ? p.medicineId : "Unknown";
                 out.add(p.id + ": " + medName + " " + p.dosage + " " + p.frequency + " for " + p.durationDays + " days");
             }
         }

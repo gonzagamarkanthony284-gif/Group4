@@ -2,10 +2,114 @@ package hpms.service;
 
 import hpms.model.*;
 import hpms.util.*;
+import hpms.util.DBConnection;
+import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.*;
 
 public class CommunicationService {
+
+    private static void ensureCriticalAlertsTable(Connection conn) {
+        if (conn == null)
+            return;
+        String sql = "CREATE TABLE IF NOT EXISTS patient_critical_alerts (" +
+                "id INT AUTO_INCREMENT PRIMARY KEY," +
+                "patient_id VARCHAR(20) NOT NULL," +
+                "alert_text TEXT NOT NULL," +
+                "created_by VARCHAR(20)," +
+                "created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+                "INDEX idx_pca_patient (patient_id)" +
+                ")";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+    }
+
+    private static void ensureStaffNotesTable(Connection conn) {
+        if (conn == null)
+            return;
+        String sql = "CREATE TABLE IF NOT EXISTS patient_staff_notes (" +
+                "id INT AUTO_INCREMENT PRIMARY KEY," +
+                "patient_id VARCHAR(20) NOT NULL," +
+                "staff_id VARCHAR(20) NOT NULL," +
+                "note_text TEXT NOT NULL," +
+                "created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+                "INDEX idx_psn_patient (patient_id)" +
+                ")";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+        }
+    }
+
+    private static void saveCriticalAlert(Connection conn, String patientId, String createdBy, String text) throws SQLException {
+        ensureCriticalAlertsTable(conn);
+        String sql = "INSERT INTO patient_critical_alerts (patient_id, alert_text, created_by, created_at) VALUES (?, ?, ?, ?)";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, patientId);
+            stmt.setString(2, text == null ? "" : text.trim());
+            stmt.setString(3, createdBy);
+            stmt.setTimestamp(4, Timestamp.valueOf(LocalDateTime.now()));
+            stmt.executeUpdate();
+        }
+    }
+
+    private static void saveStaffNote(Connection conn, String patientId, String staffId, String text) throws SQLException {
+        ensureStaffNotesTable(conn);
+        String sql = "INSERT INTO patient_staff_notes (patient_id, staff_id, note_text, created_at) VALUES (?, ?, ?, ?)";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, patientId);
+            stmt.setString(2, staffId);
+            stmt.setString(3, text == null ? "" : text.trim());
+            stmt.setTimestamp(4, Timestamp.valueOf(LocalDateTime.now()));
+            stmt.executeUpdate();
+        }
+    }
+
+    public static void loadNotesAndAlertsFromDatabase() {
+        try (Connection conn = DBConnection.getConnection()) {
+            if (conn == null)
+                return;
+            ensureCriticalAlertsTable(conn);
+            ensureStaffNotesTable(conn);
+
+            // Critical alerts
+            try (PreparedStatement stmt = conn.prepareStatement(
+                    "SELECT patient_id, alert_text FROM patient_critical_alerts ORDER BY created_at ASC")) {
+                ResultSet rs = stmt.executeQuery();
+                DataStore.criticalAlerts.clear();
+                while (rs.next()) {
+                    String pid = rs.getString("patient_id");
+                    String txt = rs.getString("alert_text");
+                    if (pid == null)
+                        continue;
+                    DataStore.criticalAlerts.computeIfAbsent(pid, k -> new ArrayList<>())
+                            .add(txt == null ? "" : txt);
+                }
+            }
+
+            // Staff notes
+            try (PreparedStatement stmt = conn.prepareStatement(
+                    "SELECT patient_id, staff_id, note_text, created_at FROM patient_staff_notes ORDER BY created_at ASC")) {
+                ResultSet rs = stmt.executeQuery();
+                DataStore.staffNotes.clear();
+                while (rs.next()) {
+                    String pid = rs.getString("patient_id");
+                    String sid = rs.getString("staff_id");
+                    String txt = rs.getString("note_text");
+                    Timestamp ts = rs.getTimestamp("created_at");
+                    LocalDateTime at = ts != null ? ts.toLocalDateTime() : LocalDateTime.now();
+                    if (pid == null)
+                        continue;
+                    DataStore.staffNotes.computeIfAbsent(pid, k -> new ArrayList<>())
+                            .add(new StaffNote(sid, txt == null ? "" : txt, at));
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error loading notes/alerts from DB: " + e.getMessage());
+        }
+    }
 
     public static List<String> addNote(String patientId, String staffId, String text) {
         List<String> out = new ArrayList<>();
@@ -17,8 +121,16 @@ public class CommunicationService {
             out.add("Error: Staff not found");
             return out;
         }
+        String cleaned = text == null ? "" : text.trim();
+        LocalDateTime now = LocalDateTime.now();
         DataStore.staffNotes.computeIfAbsent(patientId, k -> new ArrayList<>())
-                .add(new StaffNote(staffId, text == null ? "" : text.trim(), LocalDateTime.now()));
+                .add(new StaffNote(staffId, cleaned, now));
+        try (Connection conn = DBConnection.getConnection()) {
+            if (conn != null)
+                saveStaffNote(conn, patientId, staffId, cleaned);
+        } catch (SQLException e) {
+            System.err.println("Error saving staff note to DB: " + e.getMessage());
+        }
         LogManager.log("staff_note " + patientId);
         out.add("Note added");
         return out;
@@ -34,8 +146,15 @@ public class CommunicationService {
             out.add("Error: Patient not found");
             return out;
         }
-        DataStore.criticalAlerts.computeIfAbsent(patientId, k -> new ArrayList<>())
-                .add(text == null ? "" : text.trim());
+        String cleaned = text == null ? "" : text.trim();
+        DataStore.criticalAlerts.computeIfAbsent(patientId, k -> new ArrayList<>()).add(cleaned);
+        try (Connection conn = DBConnection.getConnection()) {
+            if (conn != null)
+                saveCriticalAlert(conn, patientId, hpms.auth.AuthService.current == null ? null : hpms.auth.AuthService.current.username,
+                        cleaned);
+        } catch (SQLException e) {
+            System.err.println("Error saving critical alert to DB: " + e.getMessage());
+        }
         LogManager.log("critical_alert " + patientId);
         out.add("Alert added");
         return out;

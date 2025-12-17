@@ -1,50 +1,57 @@
 package hpms.ui.panels;
 
-import hpms.model.Service;
-import hpms.service.ServiceService;
-
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
-import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.util.List;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.util.Random;
+import javax.imageio.ImageIO;
 
 public class ServicesPanel extends JPanel {
-    private JTable servicesTable;
-    private DefaultTableModel tableModel;
-    private JButton addBtn, editBtn, deleteBtn, refreshBtn;
+    private JPanel servicesContainer;
     private JTextField searchField;
     private JComboBox<String> filterCombo;
-
+    private JButton refreshBtn;
+    private Random random = new Random();
+    
+    // Department information class
+    private static class DepartmentInfo {
+        String name;
+        String subtitle;
+        String description;
+        String imageKey;
+        
+        DepartmentInfo(String name, String subtitle, String description, String imageKey) {
+            this.name = name;
+            this.subtitle = subtitle;
+            this.description = description;
+            this.imageKey = imageKey;
+        }
+    }
+    
     public ServicesPanel() {
         setLayout(new BorderLayout());
+        setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         setBackground(new Color(249, 250, 251));
-        setBorder(new EmptyBorder(15, 15, 15, 15));
-
-        // Top panel - Title and controls
-        JPanel topPanel = createTopPanel();
-        add(topPanel, BorderLayout.NORTH);
-
-        // Middle panel - Table
-        JPanel tablePanel = createTablePanel();
-        add(tablePanel, BorderLayout.CENTER);
-
-        // Bottom panel - Actions
-        JPanel buttonPanel = createButtonPanel();
-        add(buttonPanel, BorderLayout.SOUTH);
-
-        loadServices();
+        
+        add(createHeaderPanel(), BorderLayout.NORTH);
+        add(createServicesContainer(), BorderLayout.CENTER);
+        
+        // Initialize services
+        createDepartmentCards();
     }
-
-    private JPanel createTopPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BorderLayout());
+    
+    private JPanel createHeaderPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(new Color(249, 250, 251));
-        panel.setBorder(new EmptyBorder(0, 0, 15, 0));
-
+        panel.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
+        
         // Title
-        JLabel titleLabel = new JLabel("Hospital Services");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 20));
+        JLabel titleLabel = new JLabel("Medical Departments");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
         titleLabel.setForeground(new Color(30, 30, 30));
         panel.add(titleLabel, BorderLayout.WEST);
 
@@ -79,314 +86,265 @@ public class ServicesPanel extends JPanel {
         filterCombo.addActionListener(e -> filterServices());
         searchPanel.add(filterCombo);
 
+        // Add refresh button
+        refreshBtn = new JButton("Refresh");
+        refreshBtn.setFont(new Font("Arial", Font.BOLD, 11));
+        refreshBtn.setBackground(new Color(76, 175, 80));
+        refreshBtn.setForeground(Color.WHITE);
+        refreshBtn.setBorder(BorderFactory.createEmptyBorder(6, 12, 6, 12));
+        refreshBtn.setFocusPainted(false);
+        refreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        refreshBtn.addActionListener(e -> refreshServices());
+        searchPanel.add(Box.createHorizontalStrut(10));
+        searchPanel.add(refreshBtn);
+
         panel.add(searchPanel, BorderLayout.EAST);
         return panel;
     }
 
-    private JPanel createTablePanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBackground(new Color(249, 250, 251));
+    private JScrollPane createServicesContainer() {
+        servicesContainer = new JPanel();
+        servicesContainer.setLayout(new GridBagLayout());
+        servicesContainer.setBackground(new Color(249, 250, 251));
+        
+        JScrollPane scrollPane = new JScrollPane(servicesContainer);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        
+        return scrollPane;
+    }
 
-        String[] columns = {"Service ID", "Service Name", "Department", "Description", "Available Beds", "Total Beds", "Status"};
-        tableModel = new DefaultTableModel(columns, 0) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
+    private void createDepartmentCards() {
+        // Define department information
+        DepartmentInfo[] departments = {
+            new DepartmentInfo("Cardiology", "Heart & Vascular Care", 
+                "Comprehensive cardiac care including diagnostics, surgery, and rehabilitation. " +
+                "Our expert cardiologists provide treatment for heart conditions, " +
+                "cardiac catheterization, and preventive cardiology services.", 
+                "cardiology"),
+            new DepartmentInfo("Emergency Room", "24/7 Emergency Care", 
+                "Round-the-clock emergency medical services for trauma, acute illnesses, " +
+                "and life-threatening conditions. Staffed by board-certified emergency " +
+                "physicians and critical care nurses.", 
+                "er"),
+            new DepartmentInfo("Neurology", "Brain & Nervous System", 
+                "Specialized care for neurological disorders including stroke, epilepsy, " +
+                "Parkinson's disease, and multiple sclerosis. Advanced diagnostic and " +
+                "treatment options for nervous system conditions.", 
+                "neurology"),
+            new DepartmentInfo("Orthopedics", "Bone & Joint Care", 
+                "Complete orthopedic services including joint replacement, sports medicine, " +
+                "fracture care, and spine surgery. Our orthopedic specialists use " +
+                "minimally invasive techniques for faster recovery.", 
+                "orthopedics"),
+            new DepartmentInfo("Pediatrics", "Children's Health", 
+                "Comprehensive healthcare for infants, children, and adolescents. " +
+                "From routine check-ups to specialized pediatric care, we provide " +
+                "child-friendly medical services in a nurturing environment.", 
+                "pediatrics")
         };
-
-        servicesTable = new JTable(tableModel);
-        servicesTable.setBackground(Color.WHITE);
-        servicesTable.setForeground(new Color(30, 30, 30));
-        servicesTable.setSelectionBackground(new Color(59, 130, 246));
-        servicesTable.setSelectionForeground(Color.WHITE);
-        servicesTable.setRowHeight(28);
-        servicesTable.getTableHeader().setBackground(new Color(30, 64, 175));
-        servicesTable.getTableHeader().setForeground(Color.WHITE);
-        servicesTable.getTableHeader().setFont(new Font("Arial", Font.BOLD, 11));
-
-        JScrollPane scrollPane = new JScrollPane(servicesTable);
-        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(229, 231, 235)));
-        panel.add(scrollPane, BorderLayout.CENTER);
-
-        return panel;
-    }
-
-    private JPanel createButtonPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
-        panel.setBackground(new Color(249, 250, 251));
-        panel.setBorder(new EmptyBorder(15, 0, 0, 0));
-
-        addBtn = new JButton("+ Add Service");
-        addBtn.setFont(new Font("Arial", Font.BOLD, 11));
-        addBtn.setBackground(new Color(30, 64, 175));
-        addBtn.setForeground(Color.WHITE);
-        addBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        addBtn.addActionListener(e -> addService());
-
-        editBtn = new JButton("✎ Edit");
-        editBtn.setFont(new Font("Arial", Font.BOLD, 11));
-        editBtn.setBackground(new Color(59, 130, 246));
-        editBtn.setForeground(Color.WHITE);
-        editBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        editBtn.addActionListener(e -> editService());
-
-        deleteBtn = new JButton("✕ Delete");
-        deleteBtn.setFont(new Font("Arial", Font.BOLD, 11));
-        deleteBtn.setBackground(new Color(239, 68, 68));
-        deleteBtn.setForeground(Color.WHITE);
-        deleteBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        deleteBtn.addActionListener(e -> deleteService());
-
-        refreshBtn = new JButton("⟲ Refresh");
-        refreshBtn.setFont(new Font("Arial", Font.BOLD, 11));
-        refreshBtn.setBackground(new Color(107, 114, 128));
-        refreshBtn.setForeground(Color.WHITE);
-        refreshBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        refreshBtn.addActionListener(e -> loadServices());
-
-        panel.add(addBtn);
-        panel.add(Box.createHorizontalStrut(8));
-        panel.add(editBtn);
-        panel.add(Box.createHorizontalStrut(8));
-        panel.add(deleteBtn);
-        panel.add(Box.createHorizontalStrut(8));
-        panel.add(refreshBtn);
-        panel.add(Box.createHorizontalGlue());
-
-        return panel;
-    }
-
-    private void loadServices() {
-        tableModel.setRowCount(0);
-        List<Service> servicesList = ServiceService.getAllServices();
-
-        for (Service service : servicesList) {
-            Object[] row = {
-                    service.serviceId,
-                    service.serviceName,
-                    service.department,
-                    service.description,
-                    service.availableBeds,
-                    service.totalBeds,
-                    service.status
-            };
-            tableModel.addRow(row);
+        
+        for (DepartmentInfo dept : departments) {
+            servicesContainer.add(createInformativeDepartmentCard(dept));
         }
     }
-
-    private void searchServices() {
-        String query = searchField.getText().trim();
-        tableModel.setRowCount(0);
-
-        List<Service> results;
-        if (query.isEmpty()) {
-            results = ServiceService.getAllServices();
+    
+    private JPanel createInformativeDepartmentCard(DepartmentInfo dept) {
+        JPanel card = new JPanel(new BorderLayout());
+        card.setBackground(Color.WHITE);
+        card.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(200, 200, 210)),
+            BorderFactory.createEmptyBorder(20, 20, 20, 20)
+        ));
+        card.setMaximumSize(new Dimension(350, 200));
+        card.setPreferredSize(new Dimension(350, 200));
+        
+        // Left side - Image
+        JLabel imageLabel = new JLabel();
+        imageLabel.setPreferredSize(new Dimension(150, 150));
+        imageLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        
+        // Load department image
+        ImageIcon icon = loadDepartmentImage(dept.imageKey);
+        if (icon != null) {
+            imageLabel.setIcon(icon);
         } else {
-            results = ServiceService.searchServices(query);
+            // Fallback to a colored placeholder
+            imageLabel.setOpaque(true);
+            imageLabel.setBackground(getDepartmentColor(dept.imageKey));
+            imageLabel.setText("No Image");
+            imageLabel.setForeground(Color.WHITE);
+            imageLabel.setFont(new Font("Arial", Font.BOLD, 14));
+            imageLabel.setHorizontalAlignment(SwingConstants.CENTER);
+            imageLabel.setVerticalAlignment(SwingConstants.CENTER);
         }
-
-        for (Service service : results) {
-            Object[] row = {
-                    service.serviceId,
-                    service.serviceName,
-                    service.department,
-                    service.description,
-                    service.availableBeds,
-                    service.totalBeds,
-                    service.status
-            };
-            tableModel.addRow(row);
+        
+        // Right side - Information
+        JPanel infoPanel = new JPanel();
+        infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.Y_AXIS));
+        infoPanel.setBackground(Color.WHITE);
+        infoPanel.setOpaque(true);
+        
+        JLabel nameLabel = new JLabel(dept.name);
+        nameLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        nameLabel.setForeground(new Color(30, 30, 30));
+        nameLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        
+        JLabel subtitleLabel = new JLabel(dept.subtitle);
+        subtitleLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        subtitleLabel.setForeground(new Color(100, 100, 100));
+        subtitleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        
+        // Description with word wrap
+        JTextArea descriptionArea = new JTextArea(dept.description);
+        descriptionArea.setFont(new Font("Arial", Font.PLAIN, 11));
+        descriptionArea.setForeground(new Color(60, 60, 60));
+        descriptionArea.setBackground(Color.WHITE);
+        descriptionArea.setOpaque(true);
+        descriptionArea.setWrapStyleWord(true);
+        descriptionArea.setLineWrap(true);
+        descriptionArea.setEditable(false);
+        descriptionArea.setFocusable(false);
+        descriptionArea.setAlignmentX(Component.LEFT_ALIGNMENT);
+        
+        infoPanel.add(nameLabel);
+        infoPanel.add(Box.createVerticalStrut(5));
+        infoPanel.add(subtitleLabel);
+        infoPanel.add(Box.createVerticalStrut(10));
+        infoPanel.add(descriptionArea);
+        
+        card.add(imageLabel, BorderLayout.WEST);
+        card.add(infoPanel, BorderLayout.CENTER);
+        
+        // Add hover effect
+        card.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                card.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(76, 175, 80), 2),
+                    BorderFactory.createEmptyBorder(20, 20, 20, 20)
+                ));
+                card.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            }
+            
+            @Override
+            public void mouseExited(MouseEvent e) {
+                card.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(200, 200, 210)),
+                    BorderFactory.createEmptyBorder(20, 20, 20, 20)
+                ));
+                card.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+            }
+        });
+        
+        return card;
+    }
+    
+    private ImageIcon loadDepartmentImage(String department) {
+        // Map department names to image files
+        String deptLower = department.toLowerCase().trim();
+        String imagePath = null;
+        
+        if (deptLower.contains("cardio")) {
+            imagePath = getRandomImage("cardiology");
+        } else if (deptLower.contains("emergency") || deptLower.contains("er")) {
+            imagePath = getRandomImage("er");
+        } else if (deptLower.contains("neuro")) {
+            imagePath = getRandomImage("neurology");
+        } else if (deptLower.contains("ortho")) {
+            imagePath = getRandomImage("orthopedics");
+        } else if (deptLower.contains("pediatric")) {
+            imagePath = getRandomImage("pediatrics");
+        }
+        
+        if (imagePath != null) {
+            try {
+                BufferedImage image = ImageIO.read(new File(imagePath));
+                // Scale image to fit the label size
+                Image scaledImage = image.getScaledInstance(150, 150, Image.SCALE_SMOOTH);
+                return new ImageIcon(scaledImage);
+            } catch (IOException e) {
+                System.err.println("Could not load image: " + imagePath + " - " + e.getMessage());
+            }
+        }
+        
+        return null;
+    }
+    
+    private String getRandomImage(String department) {
+        // Get the project root directory
+        String projectRoot = System.getProperty("user.dir");
+        String resourcesPath = projectRoot + File.separator + "resources";
+        
+        // List of available images for each department
+        String[] cardiologyImages = {"cardiology1.jpg", "cardiology2.jpg", "cardiology3.jpg", "cardiology4.jpg"};
+        String[] erImages = {"er1.jpg", "er2.jpg", "er3.jpg", "er4.jpg"};
+        String[] neurologyImages = {"neurology1.jpg", "neurology2.jpg", "neurology3.jpg", "neurology4.jpg"};
+        String[] orthopedicsImages = {"orthopedics1.jpg", "orthopedics2.jpg", "orthopedics3.jpg", "orthopedics4.jpg"};
+        String[] pediatricsImages = {"pediatrics1.jpg", "pediatrics2.jpg", "pediatrics3.jpg", "pediatrics4.jpg"};
+        
+        String[] images = null;
+        switch (department.toLowerCase()) {
+            case "cardiology":
+                images = cardiologyImages;
+                break;
+            case "er":
+                images = erImages;
+                break;
+            case "neurology":
+                images = neurologyImages;
+                break;
+            case "orthopedics":
+                images = orthopedicsImages;
+                break;
+            case "pediatrics":
+                images = pediatricsImages;
+                break;
+        }
+        
+        if (images != null && images.length > 0) {
+            String selectedImage = images[random.nextInt(images.length)];
+            return resourcesPath + File.separator + selectedImage;
+        }
+        
+        return null;
+    }
+    
+    private Color getDepartmentColor(String department) {
+        switch (department.toLowerCase()) {
+            case "cardiology":
+                return new Color(220, 53, 69); // Red
+            case "er":
+                return new Color(255, 193, 7); // Yellow
+            case "neurology":
+                return new Color(13, 110, 253); // Blue
+            case "orthopedics":
+                return new Color(25, 135, 84); // Green
+            case "pediatrics":
+                return new Color(255, 127, 80); // Orange
+            default:
+                return new Color(108, 117, 125); // Gray
         }
     }
-
+    
+    private void searchServices() {
+        String searchTerm = searchField.getText().trim().toLowerCase();
+        // Implementation for search functionality
+        System.out.println("Searching for: " + searchTerm);
+    }
+    
     private void filterServices() {
         String filter = (String) filterCombo.getSelectedItem();
-        tableModel.setRowCount(0);
-
-        List<Service> servicesList = ServiceService.getAllServices();
-        for (Service service : servicesList) {
-            if ("All".equals(filter) || 
-                ("Active".equals(filter) && "ACTIVE".equals(service.status)) ||
-                ("Inactive".equals(filter) && "INACTIVE".equals(service.status))) {
-                Object[] row = {
-                        service.serviceId,
-                        service.serviceName,
-                        service.department,
-                        service.description,
-                        service.availableBeds,
-                        service.totalBeds,
-                        service.status
-                };
-                tableModel.addRow(row);
-            }
-        }
+        // Implementation for filter functionality
+        System.out.println("Filter: " + filter);
     }
-
-    private void addService() {
-        JDialog dialog = new JDialog((JFrame) SwingUtilities.getWindowAncestor(this), "Add New Service", true);
-        dialog.setSize(400, 350);
-        dialog.setLocationRelativeTo(this);
-        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setBorder(new EmptyBorder(15, 15, 15, 15));
-
-        JTextField nameField = new JTextField();
-        JTextField descField = new JTextField();
-        JSpinner availBedsSpinner = new JSpinner(new SpinnerNumberModel(5, 0, 100, 1));
-        JSpinner totalBedsSpinner = new JSpinner(new SpinnerNumberModel(10, 1, 100, 1));
-        JComboBox<String> deptCombo = new JComboBox<>(new String[]{"Cardiology", "Neurology", "Orthopedics", "Pediatrics", "Oncology", "ER"});
-
-        panel.add(new JLabel("Service Name:"));
-        panel.add(nameField);
-        panel.add(Box.createVerticalStrut(8));
-
-        panel.add(new JLabel("Description:"));
-        panel.add(descField);
-        panel.add(Box.createVerticalStrut(8));
-
-        panel.add(new JLabel("Department:"));
-        panel.add(deptCombo);
-        panel.add(Box.createVerticalStrut(8));
-
-        panel.add(new JLabel("Available Beds:"));
-        panel.add(availBedsSpinner);
-        panel.add(Box.createVerticalStrut(8));
-
-        panel.add(new JLabel("Total Beds:"));
-        panel.add(totalBedsSpinner);
-        panel.add(Box.createVerticalStrut(15));
-
-        JPanel buttonPanel = new JPanel();
-        JButton saveBtn = new JButton("Save");
-        JButton cancelBtn = new JButton("Cancel");
-        buttonPanel.add(saveBtn);
-        buttonPanel.add(cancelBtn);
-
-        saveBtn.addActionListener(e -> {
-            String name = nameField.getText().trim();
-            String desc = descField.getText().trim();
-            int availBeds = (Integer) availBedsSpinner.getValue();
-            int totalBeds = (Integer) totalBedsSpinner.getValue();
-            String dept = (String) deptCombo.getSelectedItem();
-
-            if (name.isEmpty() || desc.isEmpty()) {
-                JOptionPane.showMessageDialog(dialog, "Please fill all fields", "Error", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-
-            ServiceService.addService(name, desc, availBeds, totalBeds, dept);
-            loadServices();
-            dialog.dispose();
-            JOptionPane.showMessageDialog(this, "Service added successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
-        });
-
-        cancelBtn.addActionListener(e -> dialog.dispose());
-
-        panel.add(buttonPanel);
-        dialog.add(panel);
-        dialog.setVisible(true);
-    }
-
-    private void editService() {
-        int selectedRow = servicesTable.getSelectedRow();
-        if (selectedRow < 0) {
-            JOptionPane.showMessageDialog(this, "Please select a service to edit", "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        String serviceId = (String) tableModel.getValueAt(selectedRow, 0);
-        Service service = ServiceService.getService(serviceId);
-
-        JDialog dialog = new JDialog((JFrame) SwingUtilities.getWindowAncestor(this), "Edit Service", true);
-        dialog.setSize(400, 350);
-        dialog.setLocationRelativeTo(this);
-        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setBorder(new EmptyBorder(15, 15, 15, 15));
-
-        JTextField nameField = new JTextField(service.serviceName);
-        JTextField descField = new JTextField(service.description);
-        JSpinner availBedsSpinner = new JSpinner(new SpinnerNumberModel(service.availableBeds, 0, 100, 1));
-        JSpinner totalBedsSpinner = new JSpinner(new SpinnerNumberModel(service.totalBeds, 1, 100, 1));
-        JComboBox<String> statusCombo = new JComboBox<>(new String[]{"ACTIVE", "INACTIVE"});
-        statusCombo.setSelectedItem(service.status);
-
-        panel.add(new JLabel("Service Name:"));
-        panel.add(nameField);
-        panel.add(Box.createVerticalStrut(8));
-
-        panel.add(new JLabel("Description:"));
-        panel.add(descField);
-        panel.add(Box.createVerticalStrut(8));
-
-        panel.add(new JLabel("Available Beds:"));
-        panel.add(availBedsSpinner);
-        panel.add(Box.createVerticalStrut(8));
-
-        panel.add(new JLabel("Total Beds:"));
-        panel.add(totalBedsSpinner);
-        panel.add(Box.createVerticalStrut(8));
-
-        panel.add(new JLabel("Status:"));
-        panel.add(statusCombo);
-        panel.add(Box.createVerticalStrut(15));
-
-        JPanel buttonPanel = new JPanel();
-        JButton updateBtn = new JButton("Update");
-        JButton cancelBtn = new JButton("Cancel");
-        buttonPanel.add(updateBtn);
-        buttonPanel.add(cancelBtn);
-
-        updateBtn.addActionListener(e -> {
-            String name = nameField.getText().trim();
-            String desc = descField.getText().trim();
-            int availBeds = (Integer) availBedsSpinner.getValue();
-            int totalBeds = (Integer) totalBedsSpinner.getValue();
-            String status = (String) statusCombo.getSelectedItem();
-
-            if (name.isEmpty() || desc.isEmpty()) {
-                JOptionPane.showMessageDialog(dialog, "Please fill all fields", "Error", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-
-            ServiceService.updateService(serviceId, name, desc, availBeds, totalBeds, status);
-            loadServices();
-            dialog.dispose();
-            JOptionPane.showMessageDialog(this, "Service updated successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
-        });
-
-        cancelBtn.addActionListener(e -> dialog.dispose());
-
-        panel.add(buttonPanel);
-        dialog.add(panel);
-        dialog.setVisible(true);
-    }
-
-    private void deleteService() {
-        int selectedRow = servicesTable.getSelectedRow();
-        if (selectedRow < 0) {
-            JOptionPane.showMessageDialog(this, "Please select a service to delete", "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        String serviceId = (String) tableModel.getValueAt(selectedRow, 0);
-        String serviceName = (String) tableModel.getValueAt(selectedRow, 1);
-
-        int confirm = JOptionPane.showConfirmDialog(this,
-                "Are you sure you want to delete service: " + serviceName + "?",
-                "Confirm Delete",
-                JOptionPane.YES_NO_OPTION);
-
-        if (confirm == JOptionPane.YES_OPTION) {
-            ServiceService.deleteService(serviceId);
-            loadServices();
-            JOptionPane.showMessageDialog(this, "Service deleted successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
-        }
+    
+    private void refreshServices() {
+        servicesContainer.removeAll();
+        createDepartmentCards();
+        servicesContainer.revalidate();
+        servicesContainer.repaint();
     }
 }

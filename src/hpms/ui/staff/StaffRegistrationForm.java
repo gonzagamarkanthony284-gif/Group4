@@ -4,20 +4,37 @@ import javax.swing.*;
 import hpms.ui.components.Theme;
 import hpms.service.StaffService;
 import hpms.auth.AuthService;
+import hpms.auth.AuthSession;
+import hpms.util.DataStore;
+import hpms.model.UserRole;
 import java.awt.*;
+import java.util.Objects;
 
 public class StaffRegistrationForm extends JFrame {
+    private final AuthSession session;
     private JTextField nameField, phoneField, emailField, yearsExperienceField;
     private JComboBox<String> roleCombo, deptCombo, statusCombo;
     private JComboBox<String> specCombo, nursingCombo;
     private JTextField subSpec, licenseDoctor, yearsPracticeDoctor, licenseNurse, certsField, yearsExpNurse;
-    private JPanel doctorPanel, nursePanel, cashierPanel, adminPanel;
+    private JPanel doctorPanel, nursePanel, cashierPanel, adminPanel, frontDeskPanel;
     private JLabel empId;
 
-    public StaffRegistrationForm() {
-        setTitle("Staff Registration");
+    public StaffRegistrationForm(AuthSession session) {
+        this.session = Objects.requireNonNull(session, "Session cannot be null");
+        
+        // Check if user is admin
+        if (!canAccess(session)) {
+            JOptionPane.showMessageDialog(null, 
+                "Access Denied: Only administrators can register new staff members.",
+                "Unauthorized Access",
+                JOptionPane.ERROR_MESSAGE);
+            dispose();
+            return;
+        }
+        
+        setTitle("Staff Registration - Admin Only");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(1400, 1700);
+        setSize(1400, 700);
         setLocationRelativeTo(null);
 
         // Main panel with border layout
@@ -138,7 +155,8 @@ public class StaffRegistrationForm extends JFrame {
         // NOTE: ADMIN role is excluded from this registration form
         // Admin accounts can ONLY be created through the AdminGUI by existing admins
         // This ensures proper access control and prevents unauthorized admin creation
-        roleCombo = new JComboBox<>(new String[] { "DOCTOR", "NURSE", "CASHIER" });
+        // ECLIPSE FORCE RECOMPILE: Added FRONT_DESK role for front desk staff registration
+        roleCombo = new JComboBox<>(new String[] { "DOCTOR", "NURSE", "CASHIER", "FRONT_DESK" });
         roleCombo.setBackground(Color.WHITE);
         roleCombo.setBorder(BorderFactory.createLineBorder(Theme.BORDER));
         roleCombo.setPreferredSize(new Dimension(180, 28));
@@ -245,6 +263,11 @@ public class StaffRegistrationForm extends JFrame {
         cashierPanel = createCashierPanel();
         panelContainer.add(cashierPanel, gbc);
 
+        // Front Desk Panel
+        gbc.gridy++;
+        frontDeskPanel = createFrontDeskPanel();
+        panelContainer.add(frontDeskPanel, gbc);
+
         // Admin Panel
         gbc.gridy++;
         adminPanel = createAdminPanel();
@@ -253,6 +276,7 @@ public class StaffRegistrationForm extends JFrame {
         doctorPanel.setVisible(true);
         nursePanel.setVisible(false);
         cashierPanel.setVisible(false);
+        frontDeskPanel.setVisible(false);
         adminPanel.setVisible(false);
 
         card.add(panelContainer, BorderLayout.CENTER);
@@ -263,6 +287,7 @@ public class StaffRegistrationForm extends JFrame {
             doctorPanel.setVisible("DOCTOR".equals(role));
             nursePanel.setVisible("NURSE".equals(role));
             cashierPanel.setVisible("CASHIER".equals(role));
+            frontDeskPanel.setVisible("FRONT_DESK".equals(role));
             adminPanel.setVisible("ADMIN".equals(role));
 
             if ("CASHIER".equals(role)) {
@@ -280,6 +305,8 @@ public class StaffRegistrationForm extends JFrame {
                     depts = new String[] { "Cardiology", "Neurology", "Orthopedics", "Pediatrics", "Oncology", "ER" };
                 } else if ("CASHIER".equals(role)) {
                     depts = new String[] { "Billing", "Admin" };
+                } else if ("FRONT_DESK".equals(role)) {
+                    depts = new String[] { "Reception", "Admin", "Patient Services" };
                 } else {
                     depts = new String[] { "Admin", "Billing" };
                 }
@@ -427,6 +454,29 @@ public class StaffRegistrationForm extends JFrame {
         return panel;
     }
 
+    private JPanel createFrontDeskPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBackground(Color.WHITE);
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(6, 6, 6, 6);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        panel.add(new JLabel("Front Desk: No additional medical fields required"), gbc);
+
+        gbc.gridy++;
+        gbc.gridwidth = 2;
+        JLabel descLabel = new JLabel("<html><i>Front desk staff handle patient registration, check-in/out, billing, and general reception duties.</i></html>");
+        descLabel.setFont(descLabel.getFont().deriveFont(descLabel.getFont().getSize() - 2f));
+        descLabel.setForeground(Color.GRAY);
+        panel.add(descLabel, gbc);
+
+        return panel;
+    }
+
     private JPanel createAdminPanel() {
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(Color.WHITE);
@@ -442,13 +492,25 @@ public class StaffRegistrationForm extends JFrame {
     }
 
     private void saveStaff() {
+        // Verify admin session is still valid
+        if (session == null || !"ADMIN".equals(session.role)) {
+            JOptionPane.showMessageDialog(this, 
+                "Your session has expired or you no longer have permission to perform this action.",
+                "Session Expired",
+                JOptionPane.ERROR_MESSAGE);
+            dispose();
+            return;
+        }
+        
         String role = (String) roleCombo.getSelectedItem();
 
         // Defensive check: ADMIN role should never be allowed in this form
         if ("ADMIN".equalsIgnoreCase(role)) {
-            JOptionPane.showMessageDialog(this, "Admin accounts cannot be created through this form. " +
-                    "Use the Administration panel to create admin accounts.", "Access Denied",
-                    JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, 
+                "Admin accounts cannot be created through this form. " +
+                "Use the Administration panel to create admin accounts.", 
+                "Access Denied",
+                JOptionPane.WARNING_MESSAGE);
             return;
         }
 
@@ -519,16 +581,46 @@ public class StaffRegistrationForm extends JFrame {
         }
 
         // Save to service
+        String specialization = specCombo != null && specCombo.getSelectedItem() != null ? specCombo.getSelectedItem().toString() : "";
+        String license = licenseDoctor != null ? licenseDoctor.getText() : "";
+        
+        // Debug log the input values and available departments
+        System.out.println("Saving staff with values:");
+        System.out.println("Name: " + name);
+        System.out.println("Role: " + role);
+        System.out.println("Department: " + dept + " (trimmed: '" + dept.trim() + "')");
+        System.out.println("Specialization: " + specialization);
+        System.out.println("Phone: " + phone);
+        System.out.println("Email: " + email);
+        System.out.println("License: " + license);
+        
+        // Log all available departments for debugging
+        try {
+            java.lang.reflect.Field deptsField = DataStore.class.getDeclaredField("departments");
+            deptsField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            java.util.Set<String> departments = (java.util.Set<String>) deptsField.get(null);
+            System.out.println("Available departments: " + departments);
+            System.out.println("Department exists: " + departments.contains(dept.trim()));
+        } catch (Exception e) {
+            System.err.println("Error accessing departments: " + e.getMessage());
+        }
+        
         java.util.List<String> result = StaffService.add(
                 name,
                 role,
                 dept,
-                specCombo != null && specCombo.getSelectedItem() != null ? specCombo.getSelectedItem().toString() : "",
+                specialization,
                 phone,
                 email,
-                licenseDoctor != null ? licenseDoctor.getText() : "",
+                license,
                 "",
                 "");
+                
+        if (result != null && !result.isEmpty()) {
+            System.out.println("Service response: " + result);
+        }
+        
         if (result != null && !result.isEmpty() && result.get(0).toLowerCase().contains("added")) {
             // Extract staff ID from response
             String staffId = result.get(0).replaceAll(".*\\s", ""); // Get the ID from "Staff added SXXX"
@@ -540,11 +632,40 @@ public class StaffRegistrationForm extends JFrame {
             if (accountResult != null && !accountResult.isEmpty()
                     && accountResult.get(0).startsWith("User registered")) {
                 AuthService.changePasswordNoOld(staffId, generatedPassword);
+                
+                // Send email with credentials (especially for doctors - they receive credentials only via email)
+                if (role.equalsIgnoreCase("DOCTOR")) {
+                    hpms.model.Staff doctor = hpms.util.DataStore.staff.get(staffId);
+                    if (doctor != null && doctor.email != null && !doctor.email.trim().isEmpty()) {
+                        hpms.util.EmailService.sendDoctorCredentialsEmail(
+                            doctor.email,
+                            staffId,
+                            generatedPassword,
+                            doctor.name);
+                    }
+                } else {
+                    // For other staff, also send email if available
+                    hpms.model.Staff staffMember = hpms.util.DataStore.staff.get(staffId);
+                    if (staffMember != null && staffMember.email != null && !staffMember.email.trim().isEmpty()) {
+                        hpms.util.EmailService.sendAccountCreationEmail(
+                            staffMember.email,
+                            staffId,
+                            generatedPassword,
+                            role,
+                            staffMember.name
+                        );
+                    }
+                }
+                
                 JOptionPane.showMessageDialog(this,
                         "Staff registered successfully!\n\n" +
                                 "Staff ID: " + staffId + "\n" +
                                 "Login Password: " + generatedPassword + "\n\n" +
-                                "Please save this password securely.",
+                                (role.equalsIgnoreCase("DOCTOR") ? 
+                                    "Credentials have been sent to the doctor's email address." :
+                                    role.equalsIgnoreCase("FRONT_DESK") ?
+                                    "Credentials have been sent to the front desk staff's email address." :
+                                    "Please save this password securely."),
                         "Registration Success",
                         JOptionPane.INFORMATION_MESSAGE);
             } else {
@@ -556,13 +677,43 @@ public class StaffRegistrationForm extends JFrame {
             }
             dispose();
         } else {
-            JOptionPane.showMessageDialog(this,
-                    result != null && !result.isEmpty() ? result.get(0) : "Registration failed", "Error",
-                    JOptionPane.ERROR_MESSAGE);
+            // Show detailed error message
+            StringBuilder errorMsg = new StringBuilder("Error saving staff:\n\n");
+            if (result != null && !result.isEmpty()) {
+                for (String msg : result) {
+                    errorMsg.append("- ").append(msg).append("\n");
+                }
+            } else {
+                errorMsg.append("No error details available. Please check the console for more information.");
+            }
+            
+            // Also show available departments for debugging
+            errorMsg.append("\nAvailable departments: " + String.join(", ", DataStore.departments));
+            
+            JOptionPane.showMessageDialog(this, 
+                errorMsg.toString(), 
+                "Error Saving Staff", 
+                JOptionPane.ERROR_MESSAGE);
+                
+            // Log to console for debugging
+            System.err.println("Error saving staff: " + errorMsg);
         }
     }
 
+    /**
+     * Checks if the current user has permission to access this form
+     * @param session The current authentication session
+     * @return true if the user is an admin, false otherwise
+     */
+    public static boolean canAccess(AuthSession session) {
+        return session != null && session.role == UserRole.ADMIN;
+    }
+    
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new StaffRegistrationForm().setVisible(true));
+        JOptionPane.showMessageDialog(null, 
+            "This form can only be accessed through the admin panel with proper authentication.",
+            "Access Denied",
+            JOptionPane.ERROR_MESSAGE);
+        System.exit(1);
     }
 }

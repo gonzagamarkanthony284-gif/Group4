@@ -1,13 +1,11 @@
 package hpms.ui.login;
 
-import hpms.auth.AuthService;
-import hpms.util.BackupUtil;
+import javax.swing.*;
 import hpms.model.RoomStatus;
 import hpms.model.Room;
 import hpms.util.DataStore;
 import hpms.util.IDGenerator;
-
-import javax.swing.*;
+import hpms.auth.AuthService;
 import java.awt.*;
 import java.util.List;
 
@@ -22,7 +20,8 @@ public class LoginWindow extends JFrame {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             try {
-                BackupUtil.loadFromDefault();
+                // Disabled backup loading to use database instead
+                // BackupUtil.loadFromDefault();
             } catch (Exception ex) {
             }
             try {
@@ -42,6 +41,20 @@ public class LoginWindow extends JFrame {
                 AuthService.seedAdmin();
             }
             seedRooms();
+            seedSampleAppointments();
+            // Load staff from database
+            try { hpms.service.StaffService.loadFromDatabase(); } catch (Exception ex) { }
+            // Load patients from database
+            try { hpms.service.PatientService.loadFromDatabase(); } catch (Exception ex) { }
+            // Load notes/alerts from database (critical alerts + staff notes)
+            try { hpms.service.CommunicationService.loadNotesAndAlertsFromDatabase(); } catch (Exception ex) { }
+            // Initialize patient status table and load data
+            try { hpms.service.DatabaseInitializer.initializePatientStatusTable(); } catch (Exception ex) { }
+            try { hpms.service.PatientStatusService.loadFromDatabase(); } catch (Exception ex) { }
+            // Load appointments from database
+            try { hpms.service.AppointmentService.loadFromDatabase(); } catch (Exception ex) { }
+            // Load bills from database
+            try { hpms.service.BillingService.loadFromDatabase(); } catch (Exception ex) { }
             new LoginWindow().setVisible(true);
         });
     }
@@ -160,6 +173,18 @@ public class LoginWindow extends JFrame {
         buttonPanel.add(servicesBtn);
 
         card.add(buttonPanel);
+        card.add(Box.createVerticalStrut(8));
+        
+        // Forgot Password link
+        JButton forgotPasswordBtn = new JButton("Forgot Password?");
+        forgotPasswordBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        forgotPasswordBtn.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+        forgotPasswordBtn.setContentAreaFilled(false);
+        forgotPasswordBtn.setForeground(new Color(60, 120, 200));
+        forgotPasswordBtn.setFont(forgotPasswordBtn.getFont().deriveFont(11f));
+        forgotPasswordBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        forgotPasswordBtn.addActionListener(e -> openForgotPasswordDialog());
+        card.add(forgotPasswordBtn);
 
         right.add(Box.createVerticalGlue());
         right.add(card);
@@ -211,6 +236,75 @@ public class LoginWindow extends JFrame {
         }
     }
 
+    private void openForgotPasswordDialog() {
+        JDialog dialog = new JDialog(this, "Reset Password", true);
+        dialog.setSize(400, 300);
+        dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new BorderLayout());
+        
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        formPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        
+        // Username field
+        formPanel.add(new JLabel("Username:"), gbc);
+        gbc.gridx = 1;
+        JTextField usernameField = new JTextField(15);
+        formPanel.add(usernameField, gbc);
+        
+        gbc.gridy = 1;
+        gbc.gridx = 0;
+        formPanel.add(new JLabel("Email:"), gbc);
+        gbc.gridx = 1;
+        JTextField emailField = new JTextField(15);
+        formPanel.add(emailField, gbc);
+        
+        // Buttons
+        gbc.gridy = 2;
+        gbc.gridx = 0;
+        gbc.gridwidth = 2;
+        gbc.fill = GridBagConstraints.CENTER;
+        JPanel buttonPanel = new JPanel(new FlowLayout());
+        JButton resetBtn = new JButton("Reset Password");
+        JButton cancelBtn = new JButton("Cancel");
+        buttonPanel.add(resetBtn);
+        buttonPanel.add(cancelBtn);
+        formPanel.add(buttonPanel, gbc);
+        
+        dialog.add(formPanel, BorderLayout.CENTER);
+        
+        resetBtn.addActionListener(e -> {
+            String username = usernameField.getText().trim();
+            String email = emailField.getText().trim();
+            
+            if (username.isEmpty() || email.isEmpty()) {
+                JOptionPane.showMessageDialog(dialog, "Please enter username and email", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            
+            // Reset password logic
+            List<String> result = AuthService.resetPassword(username, email);
+            if (result.isEmpty() || result.get(0).startsWith("Error:")) {
+                JOptionPane.showMessageDialog(dialog, 
+                    result.isEmpty() ? "Password reset failed" : result.get(0), 
+                    "Reset Failed", JOptionPane.ERROR_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(dialog, 
+                    "Password reset instructions have been sent to your email.\n" + result.get(0), 
+                    "Reset Successful", JOptionPane.INFORMATION_MESSAGE);
+                dialog.dispose();
+            }
+        });
+        
+        cancelBtn.addActionListener(e -> dialog.dispose());
+        
+        dialog.setVisible(true);
+    }
+
     private void openServices() {
         hpms.service.ServiceService.initializeDefaultServices();
         ServicesWindow servicesWindow = new ServicesWindow();
@@ -223,6 +317,82 @@ public class LoginWindow extends JFrame {
         for (int i = 0; i < 10; i++) {
             String id = IDGenerator.nextId("R");
             DataStore.rooms.put(id, new Room(id, RoomStatus.VACANT, null));
+        }
+    }
+
+    public static void seedSampleAppointments() {
+        if (!DataStore.appointments.isEmpty())
+            return;
+        
+        // Create sample patients first
+        seedSamplePatients();
+        seedSampleStaff();
+        
+        // Create sample appointments for testing different role views
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        
+        // Sample appointment for today
+        String appt1Id = IDGenerator.nextId("A");
+        DataStore.appointments.put(appt1Id, 
+            new hpms.model.Appointment(appt1Id, "1001", "2001", 
+                now.withHour(10).withMinute(0), "Cardiology", now.minusDays(1)));
+        
+        // Sample appointment for tomorrow
+        String appt2Id = IDGenerator.nextId("A");
+        DataStore.appointments.put(appt2Id, 
+            new hpms.model.Appointment(appt2Id, "1002", "2002", 
+                now.plusDays(1).withHour(14).withMinute(30), "Neurology", now.minusDays(2)));
+        
+        // Sample pending appointment
+        String appt3Id = IDGenerator.nextId("A");
+        hpms.model.Appointment pendingAppt = new hpms.model.Appointment(appt3Id, "1003", "2001", 
+            now.plusDays(2).withHour(9).withMinute(0), "Orthopedics", now.minusDays(3));
+        pendingAppt.notes = "Pending confirmation";
+        DataStore.appointments.put(appt3Id, pendingAppt);
+    }
+
+    private static void seedSamplePatients() {
+        if (!DataStore.patients.isEmpty())
+            return;
+            
+        // Create sample patients
+        hpms.model.Patient patient1 = new hpms.model.Patient("1001", "John Doe", 45, "1980-01-15", 
+            hpms.model.Gender.Male, "john@example.com", "123 Main St", java.time.LocalDateTime.now());
+        DataStore.patients.put("1001", patient1);
+        
+        hpms.model.Patient patient2 = new hpms.model.Patient("1002", "Jane Smith", 32, "1993-05-22", 
+            hpms.model.Gender.Female, "jane@example.com", "456 Oak Ave", java.time.LocalDateTime.now());
+        DataStore.patients.put("1002", patient2);
+        
+        hpms.model.Patient patient3 = new hpms.model.Patient("1003", "Bob Johnson", 28, "1997-09-10", 
+            hpms.model.Gender.Male, "bob@example.com", "789 Pine Rd", java.time.LocalDateTime.now());
+        DataStore.patients.put("1003", patient3);
+    }
+
+    private static void seedSampleStaff() {
+        if (!DataStore.staff.isEmpty())
+            return;
+            
+        // Create sample doctors
+        hpms.model.Staff doctor1 = new hpms.model.Staff("2001", "Dr. Alice Wilson", hpms.model.StaffRole.DOCTOR, 
+            "Cardiology", java.time.LocalDateTime.now());
+        DataStore.staff.put("2001", doctor1);
+        
+        hpms.model.Staff doctor2 = new hpms.model.Staff("2002", "Dr. Bob Brown", hpms.model.StaffRole.DOCTOR, 
+            "Neurology", java.time.LocalDateTime.now());
+        DataStore.staff.put("2002", doctor2);
+        
+        // Create corresponding user accounts for doctors (username = staffId)
+        createDoctorUserAccount("2001", "doctor123");
+        createDoctorUserAccount("2002", "doctor123");
+    }
+    
+    private static void createDoctorUserAccount(String username, String password) {
+        // Only create if user doesn't already exist
+        if (!DataStore.users.containsKey(username)) {
+            String salt = hpms.auth.PasswordUtil.generateSalt();
+            String hashedPassword = hpms.auth.PasswordUtil.hash(password, salt);
+            DataStore.users.put(username, new hpms.auth.User(username, hashedPassword, salt, hpms.model.UserRole.DOCTOR));
         }
     }
 

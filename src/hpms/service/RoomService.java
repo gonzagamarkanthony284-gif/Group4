@@ -4,6 +4,7 @@ import hpms.model.*;
 import hpms.util.*;
 
 import java.util.*;
+import javax.swing.SwingUtilities;
 
 public class RoomService {
     public static List<String> assign(String roomId, String patientId) {
@@ -52,11 +53,13 @@ public class RoomService {
         LogManager.log("assign_room room=" + roomId + " patient=" + patientId
                 + " patient_name=" + (p != null ? p.name : "unknown")
                 + " status=" + status);
-        try {
-            BackupUtil.saveToDefault();
-        } catch (Exception ex) {
-        }
+        // Disabled backup save - using database instead
         out.add("Room assigned");
+        
+        // Trigger global refresh of room displays
+        SwingUtilities.invokeLater(() -> {
+            refreshAllRoomPanels();
+        });
         return out;
     }
 
@@ -73,11 +76,38 @@ public class RoomService {
         // Enhanced audit log
         LogManager.log("vacate_room room=" + roomId
                 + " previous_occupant=" + (previousOccupant != null ? previousOccupant : "none"));
-        try {
-            BackupUtil.saveToDefault();
-        } catch (Exception ex) {
-        }
+        // Disabled backup save - using database instead
         out.add("Room vacated");
+        
+        // Trigger global refresh of room displays
+        SwingUtilities.invokeLater(() -> {
+            refreshAllRoomPanels();
+        });
         return out;
+    }
+    
+    /**
+     * Refresh all room panels across the application to ensure synchronization
+     */
+    private static void refreshAllRoomPanels() {
+        // Refresh all open room panels through the main GUI instances
+        java.awt.Window[] windows = java.awt.Window.getWindows();
+        for (java.awt.Window window : windows) {
+            if (window instanceof hpms.ui.AdminGUI) {
+                hpms.ui.AdminGUI adminGUI = (hpms.ui.AdminGUI) window;
+                if (adminGUI.getRoomsPanel() != null) {
+                    adminGUI.getRoomsPanel().refresh();
+                }
+            } else if (window instanceof hpms.ui.MainGUI) {
+                hpms.ui.MainGUI mainGUI = (hpms.ui.MainGUI) window;
+                // Refresh any room panels in main GUI
+                java.awt.Component[] components = mainGUI.getContentPane().getComponents();
+                for (java.awt.Component comp : components) {
+                    if (comp instanceof hpms.ui.panels.RoomsPanel) {
+                        ((hpms.ui.panels.RoomsPanel) comp).refresh();
+                    }
+                }
+            }
+        }
     }
 }

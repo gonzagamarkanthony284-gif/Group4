@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 public class Staff {
     public String id;
     public String name;
-    public String role; // DOCTOR, NURSE, CASHIER, ADMIN
+    public String role; // DOCTOR, NURSE, CASHIER, ADMIN, FRONT_DESK
     public String department;
     public String phone;
     public String email;

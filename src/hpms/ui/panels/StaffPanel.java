@@ -3,21 +3,19 @@ package hpms.ui.panels;
 import hpms.auth.AuthService;
 import hpms.model.*;
 import hpms.service.*;
-import hpms.util.*;
-import hpms.ui.components.SectionHeader;
-import hpms.ui.components.Theme;
-import hpms.ui.components.DoctorFilterPanel;
+import hpms.ui.staff.UnifiedRegistrationForm;
+import hpms.ui.components.*;
+import hpms.util.DataStore;
 
 import javax.swing.*;
-import hpms.ui.staff.StaffRegistrationForm;
 import javax.swing.border.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 
 public class StaffPanel extends JPanel {
     private JTabbedPane tabbedPane;
-    private DefaultTableModel doctorModel, nurseModel, cashierModel;
-    private JTable doctorTable, nurseTable, cashierTable;
+    private DefaultTableModel doctorModel, nurseModel, cashierModel, frontDeskModel;
+    private JTable doctorTable, nurseTable, cashierTable, frontDeskTable;
     private JLabel statsLabel;
     private DoctorFilterPanel doctorFilterPanel;
     private JCheckBox showDeactivatedCheck;
@@ -45,6 +43,9 @@ public class StaffPanel extends JPanel {
 
         // Cashier Tab
         tabbedPane.addTab("Cashiers", createRolePanel("CASHIER"));
+
+        // Front Desk Tab
+        tabbedPane.addTab("Front Desk", createRolePanel("FRONT_DESK"));
 
         // Admin tab removed — admin management lives in Administration section
 
@@ -103,6 +104,8 @@ public class StaffPanel extends JPanel {
             nurseModel = model;
         } else if ("CASHIER".equals(role)) {
             cashierModel = model;
+        } else if ("FRONT_DESK".equals(role)) {
+            frontDeskModel = model;
         }
 
         // Create table
@@ -147,6 +150,11 @@ public class StaffPanel extends JPanel {
             table.getSelectionModel().addListSelectionListener(evt -> {
                 updateDeactivateButton();
             });
+        } else if ("FRONT_DESK".equals(role)) {
+            frontDeskTable = table;
+            table.getSelectionModel().addListSelectionListener(evt -> {
+                updateDeactivateButton();
+            });
         }
 
         JScrollPane scrollPane = new JScrollPane(table);
@@ -160,7 +168,7 @@ public class StaffPanel extends JPanel {
         panel.setBackground(Theme.BG);
         panel.setBorder(new EmptyBorder(12, 16, 12, 16));
 
-        statsLabel = new JLabel("Total Staff: 0 | Doctors: 0 | Nurses: 0 | Cashiers: 0");
+        statsLabel = new JLabel("Total Staff: 0 | Doctors: 0 | Nurses: 0 | Cashiers: 0 | Front Desk: 0");
         statsLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
         statsLabel.setForeground(Theme.PRIMARY);
 
@@ -190,26 +198,17 @@ public class StaffPanel extends JPanel {
         deactivateBtn = new JButton("Deactivate");
         styleButton(deactivateBtn, new Color(192, 57, 43));
 
-        JButton regUserBtn = new JButton("Register User");
-        styleButton(regUserBtn, new Color(155, 89, 182));
-
         JButton viewBtn = new JButton("View Details");
         styleButton(viewBtn, new Color(127, 140, 141));
 
-        addBtn.addActionListener(e -> addStaffDialog());
+        addBtn.addActionListener(e -> addStaff());
         editBtn.addActionListener(e -> editStaff());
         deactivateBtn.addActionListener(e -> deleteStaff());
-        regUserBtn.addActionListener(e -> registerUserDialog());
         viewBtn.addActionListener(e -> viewStaffDetails());
 
         panel.add(addBtn);
         panel.add(editBtn);
         panel.add(deactivateBtn);
-
-        if (AuthService.current != null && AuthService.current.role == UserRole.ADMIN) {
-            panel.add(regUserBtn);
-        }
-
         panel.add(viewBtn);
 
         return panel;
@@ -224,49 +223,20 @@ public class StaffPanel extends JPanel {
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
     }
 
-    private void addStaffDialog() {
-        // Show choice dialog for form type
-        Object[] options = { "Quick Registration", "Detailed Doctor Form", "Cancel" };
-        int choice = JOptionPane.showOptionDialog(this,
-                "Choose registration type:",
-                "Add Staff",
-                JOptionPane.YES_NO_CANCEL_OPTION,
-                JOptionPane.QUESTION_MESSAGE,
-                null,
-                options,
-                options[0]);
+    private void addStaff() {
+        UnifiedRegistrationForm form = new UnifiedRegistrationForm(SwingUtilities.getWindowAncestor(this));
+        form.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosed(java.awt.event.WindowEvent e) {
+                refresh();
+            }
 
-        if (choice == 0) {
-            // Quick registration form
-            StaffRegistrationForm form = new StaffRegistrationForm();
-            form.addWindowListener(new java.awt.event.WindowAdapter() {
-                @Override
-                public void windowClosed(java.awt.event.WindowEvent e) {
-                    refresh();
-                }
-
-                @Override
-                public void windowClosing(java.awt.event.WindowEvent e) {
-                    refresh();
-                }
-            });
-            form.setVisible(true);
-        } else if (choice == 1) {
-            // Detailed doctor information form
-            hpms.ui.staff.DoctorInformationForm form = new hpms.ui.staff.DoctorInformationForm();
-            form.addWindowListener(new java.awt.event.WindowAdapter() {
-                @Override
-                public void windowClosed(java.awt.event.WindowEvent e) {
-                    refresh();
-                }
-
-                @Override
-                public void windowClosing(java.awt.event.WindowEvent e) {
-                    refresh();
-                }
-            });
-            form.setVisible(true);
-        }
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                refresh();
+            }
+        });
+        form.setVisible(true);
     }
 
     private JTable getSelectedRoleTable() {
@@ -277,6 +247,8 @@ public class StaffPanel extends JPanel {
             return nurseTable;
         if (selectedIndex == 2)
             return cashierTable;
+        if (selectedIndex == 3)
+            return frontDeskTable;
         return null;
     }
 
@@ -514,80 +486,6 @@ public class StaffPanel extends JPanel {
         }
     }
 
-    private void registerUserDialog() {
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Register User Account", true);
-        dialog.setSize(450, 300);
-        dialog.setLocationRelativeTo(SwingUtilities.getWindowAncestor(this));
-
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(new EmptyBorder(16, 16, 16, 16));
-        GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(8, 8, 8, 8);
-        c.fill = GridBagConstraints.HORIZONTAL;
-
-        c.gridx = 0;
-        c.gridy = 0;
-        c.weightx = 0.3;
-        panel.add(new JLabel("Username *"), c);
-        c.gridx = 1;
-        c.weightx = 0.7;
-        JTextField usernameField = new JTextField();
-        panel.add(usernameField, c);
-
-        c.gridx = 0;
-        c.gridy = 1;
-        c.weightx = 0.3;
-        panel.add(new JLabel("Password *"), c);
-        c.gridx = 1;
-        c.weightx = 0.7;
-        JPasswordField passwordField = new JPasswordField();
-        panel.add(passwordField, c);
-
-        c.gridx = 0;
-        c.gridy = 2;
-        c.weightx = 0.3;
-        panel.add(new JLabel("Role *"), c);
-        c.gridx = 1;
-        c.weightx = 0.7;
-        JComboBox<String> roleCombo = new JComboBox<>(new String[] { "DOCTOR", "NURSE", "CASHIER" });
-        panel.add(roleCombo, c);
-
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
-        JButton saveBtn = new JButton("Register");
-        styleButton(saveBtn, new Color(155, 89, 182));
-        JButton cancelBtn = new JButton("Cancel");
-        cancelBtn.addActionListener(e -> dialog.dispose());
-
-        buttonPanel.add(cancelBtn);
-        buttonPanel.add(saveBtn);
-
-        saveBtn.addActionListener(e -> {
-            if (usernameField.getText().trim().isEmpty() || passwordField.getPassword().length == 0) {
-                JOptionPane.showMessageDialog(dialog, "Please fill all required fields", "Validation Error",
-                        JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            java.util.List<String> result = AuthService.register(
-                    usernameField.getText().trim(),
-                    new String(passwordField.getPassword()),
-                    roleCombo.getSelectedItem().toString());
-
-            if (result.get(0).startsWith("User registered")) {
-                JOptionPane.showMessageDialog(dialog, "User registered successfully!", "Success",
-                        JOptionPane.INFORMATION_MESSAGE);
-                dialog.dispose();
-                refresh();
-            } else {
-                JOptionPane.showMessageDialog(dialog, result.get(0), "Error", JOptionPane.ERROR_MESSAGE);
-            }
-        });
-
-        dialog.add(panel, BorderLayout.CENTER);
-        dialog.add(buttonPanel, BorderLayout.SOUTH);
-        dialog.setVisible(true);
-    }
-
     private void viewStaffDetails() {
         JTable table = getSelectedRoleTable();
         if (table == null) {
@@ -769,10 +667,12 @@ public class StaffPanel extends JPanel {
         doctorModel.setRowCount(0);
         nurseModel.setRowCount(0);
         cashierModel.setRowCount(0);
+        frontDeskModel.setRowCount(0);
 
         int doctorCount = 0;
         int nurseCount = 0;
         int cashierCount = 0;
+        int frontDeskCount = 0;
         int deactivatedCount = 0;
 
         for (Staff staff : DataStore.staff.values()) {
@@ -858,12 +758,36 @@ public class StaffPanel extends JPanel {
                 };
                 cashierModel.addRow(row);
                 cashierCount++;
+            } else if (staff.role == StaffRole.FRONT_DESK) {
+                // Front Desk have 6 columns: ID, Name, Department, Details, Status, Joined Date
+                String status = staff.isActive ? "Active" : "Deactivated";
+                if (staff.isActive && staff.isScheduleExpired()) {
+                    status = "Schedule Expired";
+                } else if (staff.isActive && staff.scheduleEndDate != null) {
+                    // Check if schedule expires within 7 days
+                    long daysUntilExpiry = java.time.temporal.ChronoUnit.DAYS.between(
+                            java.time.LocalDateTime.now(),
+                            staff.scheduleEndDate);
+                    if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
+                        status = "Expiring Soon (" + daysUntilExpiry + "d)";
+                    }
+                }
+                Object[] row = new Object[] {
+                        staff.id,
+                        staff.name,
+                        staff.department,
+                        details,
+                        status,
+                        staff.createdAt == null ? "" : staff.createdAt.toLocalDate().toString()
+                };
+                frontDeskModel.addRow(row);
+                frontDeskCount++;
             }
         }
 
-        int totalActive = doctorCount + nurseCount + cashierCount;
-        String stats = String.format("Active Staff: %d | Doctors: %d | Nurses: %d | Cashiers: %d",
-                totalActive, doctorCount, nurseCount, cashierCount);
+        int totalActive = doctorCount + nurseCount + cashierCount + frontDeskCount;
+        String stats = String.format("Active Staff: %d | Doctors: %d | Nurses: %d | Cashiers: %d | Front Desk: %d",
+                totalActive, doctorCount, nurseCount, cashierCount, frontDeskCount);
         if (deactivatedCount > 0 && !showDeactivated)
             stats += " | Deactivated: " + deactivatedCount + " (hidden)";
         statsLabel.setText(stats);
@@ -897,6 +821,8 @@ public class StaffPanel extends JPanel {
             return "License: " + (staff.licenseNumber == null ? "N/A" : staff.licenseNumber);
         } else if (staff.role == StaffRole.CASHIER) {
             return "Billing & Payment Processing";
+        } else if (staff.role == StaffRole.FRONT_DESK) {
+            return "Patient Registration & Reception";
         } else {
             return "Administrator";
         }

@@ -55,10 +55,7 @@ public class DischargeService {
         room.occupantPatientId = null;
 
         DataStore.log("discharge_patient " + patientId + " from " + roomId);
-        try {
-            BackupUtil.saveToDefault();
-        } catch (Exception ex) {
-        }
+        // Disabled backup save - using database instead
         out.add("Patient discharged successfully. Discharge ID: " + id);
         return out;
     }

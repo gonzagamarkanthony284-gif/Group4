@@ -16,6 +16,7 @@ public class Staff {
     public String department;
     public String phone;
     public String email;
+    public String address;
     public String licenseNumber;
     public String specialty;
     public String subSpecialization;
@@ -29,6 +30,10 @@ public class Staff {
     public LocalDateTime scheduleEndDate; // Schedule validity end date (schedule expires after this)
     public String qualifications;
     public String certifications;
+    public String education;
+    public String expertise;
+    public String skills;
+    public String competencies;
     public String bio;
     public String employeeId;
     public String status; // Active/On Leave/Resigned

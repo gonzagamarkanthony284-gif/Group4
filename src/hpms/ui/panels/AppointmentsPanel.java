@@ -121,7 +121,7 @@ public class AppointmentsPanel extends JPanel {
     }
 
     private JScrollPane createTodayTable() {
-        String[] columns = { "Patient", "Doctor", "Time", "Department", "Status" };
+        String[] columns = { "Appointment ID", "Patient", "Doctor", "Time", "Department", "Status" };
         todayModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -141,7 +141,7 @@ public class AppointmentsPanel extends JPanel {
     }
 
     private JScrollPane createUpcomingTable() {
-        String[] columns = { "Date", "Patient", "Doctor", "Time", "Department", "Status" };
+        String[] columns = { "Appointment ID", "Date", "Patient", "Doctor", "Time", "Department", "Status" };
         upcomingModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -161,7 +161,7 @@ public class AppointmentsPanel extends JPanel {
     }
 
     private JScrollPane createPendingTable() {
-        String[] columns = { "Patient", "Doctor", "Requested DateTime", "Department", "Notes", "Status" };
+        String[] columns = { "Appointment ID", "Patient", "Doctor", "Requested DateTime", "Department", "Notes", "Status" };
         pendingModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -185,17 +185,27 @@ public class AppointmentsPanel extends JPanel {
         panel.setBackground(Theme.BACKGROUND);
         panel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.BORDER));
 
-        JButton scheduleBtn = createStyledButton("Schedule New", Theme.PRIMARY);
+        // Check user role to determine which buttons to show
+        String userRole = hpms.auth.AuthService.current.role.toString();
+        boolean isDoctor = "DOCTOR".equals(userRole);
+        boolean isAdmin = "ADMIN".equals(userRole);
+        boolean canManageAppointments = isDoctor || isAdmin;
+
+        JButton scheduleBtn = createStyledButton("Schedule Appointment", new Color(76, 175, 80));
         scheduleBtn.addActionListener(e -> scheduleAppointmentDialog());
+        scheduleBtn.setVisible(canManageAppointments); // Only doctors and admins
 
         JButton rescheduleBtn = createStyledButton("Reschedule", new Color(33, 150, 243));
         rescheduleBtn.addActionListener(e -> rescheduleAppointmentDialog());
+        rescheduleBtn.setVisible(canManageAppointments); // Only doctors and admins
 
         JButton cancelBtn = createStyledButton("Cancel", new Color(244, 67, 54));
         cancelBtn.addActionListener(e -> cancelAppointment());
+        cancelBtn.setVisible(canManageAppointments); // Only doctors and admins
 
         JButton confirmBtn = createStyledButton("Confirm", new Color(76, 175, 80));
         confirmBtn.addActionListener(e -> confirmPendingAppointment());
+        confirmBtn.setVisible(canManageAppointments); // Only doctors and admins
 
         JButton viewDetailsBtn = createStyledButton("View Details", new Color(156, 39, 176));
         viewDetailsBtn.addActionListener(e -> viewAppointmentDetails());
@@ -239,19 +249,23 @@ public class AppointmentsPanel extends JPanel {
         String selectedDoctorId = getSelectedDoctorId();
         for (Appointment appt : DataStore.appointments.values()) {
             if (appt.dateTime.toLocalDate().equals(today)) {
-                if (selectedDoctorId == null || appt.staffId.equals(selectedDoctorId)) {
-                    Staff doctor = DataStore.staff.get(appt.staffId);
-                    String doctorName = doctor != null ? doctor.name : appt.staffId;
-                    Patient patient = DataStore.patients.get(appt.patientId);
-                    String patientName = patient != null ? patient.name : appt.patientId;
-                    todayModel.addRow(new Object[] {
-                            patientName,
-                            doctorName,
-                            appt.dateTime.toLocalTime(),
-                            appt.department,
-                            getAppointmentStatus(appt)
-                    });
-                    count++;
+                // Only show confirmed appointments (not pending)
+                if (appt.notes == null || !appt.notes.toLowerCase().contains("pending")) {
+                    if (selectedDoctorId == null || appt.staffId.equals(selectedDoctorId)) {
+                        Staff doctor = DataStore.staff.get(appt.staffId);
+                        String doctorName = doctor != null ? doctor.name : appt.staffId;
+                        Patient patient = DataStore.patients.get(appt.patientId);
+                        String patientName = patient != null ? patient.name : appt.patientId;
+                        todayModel.addRow(new Object[] {
+                                appt.id,
+                                patientName,
+                                doctorName,
+                                appt.dateTime.toLocalTime(),
+                                appt.department,
+                                getAppointmentStatus(appt)
+                        });
+                        count++;
+                    }
                 }
             }
         }
@@ -268,20 +282,24 @@ public class AppointmentsPanel extends JPanel {
         for (Appointment appt : DataStore.appointments.values()) {
             LocalDate apptDate = appt.dateTime.toLocalDate();
             if (apptDate.isAfter(today) && apptDate.isBefore(nextWeek)) {
-                if (selectedDoctorId == null || appt.staffId.equals(selectedDoctorId)) {
-                    Staff doctor = DataStore.staff.get(appt.staffId);
-                    String doctorName = doctor != null ? doctor.name : appt.staffId;
-                    Patient patient = DataStore.patients.get(appt.patientId);
-                    String patientName = patient != null ? patient.name : appt.patientId;
-                    upcomingModel.addRow(new Object[] {
-                            apptDate,
-                            patientName,
-                            doctorName,
-                            appt.dateTime.toLocalTime(),
-                            appt.department,
-                            getAppointmentStatus(appt)
-                    });
-                    count++;
+                // Only show confirmed appointments (not pending)
+                if (appt.notes == null || !appt.notes.toLowerCase().contains("pending")) {
+                    if (selectedDoctorId == null || appt.staffId.equals(selectedDoctorId)) {
+                        Staff doctor = DataStore.staff.get(appt.staffId);
+                        String doctorName = doctor != null ? doctor.name : appt.staffId;
+                        Patient patient = DataStore.patients.get(appt.patientId);
+                        String patientName = patient != null ? patient.name : appt.patientId;
+                        upcomingModel.addRow(new Object[] {
+                                appt.id,
+                                apptDate,
+                                patientName,
+                                doctorName,
+                                appt.dateTime.toLocalTime(),
+                                appt.department,
+                                getAppointmentStatus(appt)
+                        });
+                        count++;
+                    }
                 }
             }
         }
@@ -301,6 +319,7 @@ public class AppointmentsPanel extends JPanel {
                     Patient patient = DataStore.patients.get(appt.patientId);
                     String patientName = patient != null ? patient.name : appt.patientId;
                     pendingModel.addRow(new Object[] {
+                            appt.patientId,
                             patientName,
                             doctorName,
                             appt.dateTime,
@@ -336,6 +355,18 @@ public class AppointmentsPanel extends JPanel {
     }
 
     private void scheduleAppointmentDialog() {
+        // Check if current user has permission to create appointments
+        if (hpms.auth.AuthService.current != null) {
+            String userRole = hpms.auth.AuthService.current.role.toString();
+            // Only allow DOCTOR and ADMIN users to create appointments
+            if (!userRole.equals("DOCTOR") && !userRole.equals("ADMIN")) {
+                JOptionPane.showMessageDialog(this, 
+                    "Only Doctors and Admins can create appointments", 
+                    "Access Denied", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+        }
+        
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Schedule Appointment", true);
         dialog.setSize(500, 400);
         dialog.setLocationRelativeTo(SwingUtilities.getWindowAncestor(this));
@@ -476,7 +507,22 @@ public class AppointmentsPanel extends JPanel {
             return;
         }
 
-        String appointmentId = (String) selectedTable.getValueAt(row, 0);
+        // Appointment ID is now in column 0 for all tables
+        String appointmentId = selectedTable.getValueAt(row, 0).toString();
+        
+        // Validate appointment ID
+        if (appointmentId == null || appointmentId.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Invalid Appointment ID", "Error",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        
+        // Verify appointment exists in DataStore
+        if (!DataStore.appointments.containsKey(appointmentId)) {
+            JOptionPane.showMessageDialog(this, "Appointment not found: " + appointmentId, "Error",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Reschedule Appointment", true);
         dialog.setSize(400, 300);
@@ -559,7 +605,22 @@ public class AppointmentsPanel extends JPanel {
             return;
         }
 
-        String appointmentId = (String) selectedTable.getValueAt(row, 0);
+        // Appointment ID is now in column 0 for all tables
+        String appointmentId = selectedTable.getValueAt(row, 0).toString();
+        
+        // Validate appointment ID
+        if (appointmentId == null || appointmentId.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Invalid Appointment ID", "Error",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        
+        // Verify appointment exists in DataStore
+        if (!DataStore.appointments.containsKey(appointmentId)) {
+            JOptionPane.showMessageDialog(this, "Appointment not found: " + appointmentId, "Error",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
         int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to cancel this appointment?",
                 "Confirm Cancellation", JOptionPane.YES_NO_OPTION);
 
@@ -582,18 +643,27 @@ public class AppointmentsPanel extends JPanel {
                     JOptionPane.WARNING_MESSAGE);
             return;
         }
-        String patientId = (String) pendingModel.getValueAt(row, 0);
-        java.time.LocalDateTime dateTime = (java.time.LocalDateTime) pendingModel.getValueAt(row, 2);
-        String doctorName = String.valueOf(pendingModel.getValueAt(row, 1));
-        String dept = String.valueOf(pendingModel.getValueAt(row, 3));
+        Object patientIdObj = pendingModel.getValueAt(row, 0);
+        String patientId = patientIdObj instanceof String ? (String) patientIdObj : patientIdObj.toString();
+        Object dateTimeObj = pendingModel.getValueAt(row, 3);
+        java.time.LocalDateTime dateTime = dateTimeObj instanceof java.time.LocalDateTime ? 
+            (java.time.LocalDateTime) dateTimeObj : java.time.LocalDateTime.parse(dateTimeObj.toString());
+        Object deptObj = pendingModel.getValueAt(row, 4);
+        String dept = deptObj instanceof String ? (String) deptObj : deptObj.toString();
+        
+        System.out.println("DEBUG: Looking for appointment - Patient: " + patientId + ", DateTime: " + dateTime + ", Dept: " + dept);
         hpms.model.Appointment target = null;
+        System.out.println("DEBUG: Total appointments in DataStore: " + hpms.util.DataStore.appointments.size());
         for (hpms.model.Appointment a : hpms.util.DataStore.appointments.values()) {
+            System.out.println("DEBUG: Checking appointment - Patient: " + a.patientId + ", DateTime: " + a.dateTime + ", Dept: " + a.department + ", Notes: " + a.notes);
             if (patientId.equals(a.patientId) && a.dateTime.equals(dateTime) && dept.equals(a.department)) {
                 target = a;
+                System.out.println("DEBUG: Found matching appointment!");
                 break;
             }
         }
         if (target == null) {
+            System.out.println("DEBUG: No matching appointment found!");
             JOptionPane.showMessageDialog(this, "Could not locate appointment to confirm", "Error",
                     JOptionPane.ERROR_MESSAGE);
             return;
@@ -602,10 +672,12 @@ public class AppointmentsPanel extends JPanel {
             target.notes = target.notes.replaceAll("(?i)pending", "").trim();
         if (target.notes == null || target.notes.isEmpty())
             target.notes = "Confirmed";
-        try {
-            hpms.util.BackupUtil.saveToDefault();
-        } catch (Exception ex) {
-        }
+        
+        // Save to database
+        System.out.println("DEBUG: Calling confirmAppointment...");
+        AppointmentService.confirmAppointment(target);
+        System.out.println("DEBUG: confirmAppointment completed");
+        
         JOptionPane.showMessageDialog(this, "Appointment for patient " + patientId + " confirmed!", "Success",
                 JOptionPane.INFORMATION_MESSAGE);
         refresh();
@@ -632,8 +704,9 @@ public class AppointmentsPanel extends JPanel {
             return;
         }
 
-        String patientId = (String) selectedTable.getValueAt(row,
+        Object patientIdObj = selectedTable.getValueAt(row,
                 selectedTable == todayTable ? 0 : (selectedTable == upcomingTable ? 1 : 0));
+        String patientId = patientIdObj instanceof String ? (String) patientIdObj : patientIdObj.toString();
         Patient patient = DataStore.patients.get(patientId);
 
         String details = "Appointment Details:\n\n" +

@@ -1,13 +1,10 @@
 package hpms.ui.staff;
 
-import hpms.auth.AuthService;
 import hpms.model.Staff;
-import hpms.model.StaffRole;
 import hpms.util.DataStore;
 import javax.swing.*;
 import javax.swing.border.LineBorder;
 import java.awt.*;
-import java.time.format.DateTimeFormatter;
 
 /**
  * Modal dialog for editing existing staff information
@@ -15,7 +12,7 @@ import java.time.format.DateTimeFormatter;
  */
 public class StaffEditForm extends JDialog {
     private Staff staff;
-    private JTextField nameField, phoneField, emailField;
+    private JTextField nameField, phoneField, emailField, addressField;
     private JComboBox<String> deptCombo, statusCombo;
     private JTextField licenseField;
     private JTextField yearsExperienceField, yearsOfWorkField;
@@ -120,6 +117,16 @@ public class StaffEditForm extends JDialog {
         emailField = new JTextField(15);
         emailField.setBorder(BorderFactory.createLineBorder(new Color(200, 210, 230)));
         formPanel.add(emailField, gbc);
+
+        // Address
+        row++;
+        gbc.gridy = row;
+        gbc.gridx = 0;
+        formPanel.add(createLabel("Address"), gbc);
+        gbc.gridx = 1;
+        addressField = new JTextField(15);
+        addressField.setBorder(BorderFactory.createLineBorder(new Color(200, 210, 230)));
+        formPanel.add(addressField, gbc);
 
         // Department
         row++;
@@ -243,6 +250,7 @@ public class StaffEditForm extends JDialog {
         nameField.setText(staff.name);
         phoneField.setText(staff.phone != null ? staff.phone : "");
         emailField.setText(staff.email != null ? staff.email : "");
+        addressField.setText(staff.address != null ? staff.address : "");
         deptCombo.setSelectedItem(staff.department);
         licenseField.setText(staff.licenseNumber != null ? staff.licenseNumber : "");
         
@@ -268,6 +276,7 @@ public class StaffEditForm extends JDialog {
         String name = nameField.getText().trim();
         String phone = phoneField.getText().trim();
         String email = emailField.getText().trim();
+        String address = addressField.getText().trim();
 
         if (name.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Name is required", "Validation Error", JOptionPane.WARNING_MESSAGE);
@@ -298,6 +307,7 @@ public class StaffEditForm extends JDialog {
         staff.name = name;
         staff.phone = phone;
         staff.email = email;
+        staff.address = address.isEmpty() ? null : address;
         staff.department = (String) deptCombo.getSelectedItem();
         staff.licenseNumber = licenseField.getText().trim();
         
@@ -352,7 +362,7 @@ public class StaffEditForm extends JDialog {
                         try { hpms.service.CommunicationService.addAlert(a.patientId, "Your doctor (" + (staff.name==null?staff.id:staff.name) + ") is unavailable today. We will reschedule or advise you shortly."); } catch (Exception ex) { }
                     }
                 }
-                try { hpms.util.BackupUtil.saveToDefault(); } catch (Exception ex) { }
+                // Disabled backup save - using database instead
 
                 String[] options = new String[]{"Reschedule whole day", "Adjust times only", "Skip"};
                 int choice = javax.swing.JOptionPane.showOptionDialog(this,

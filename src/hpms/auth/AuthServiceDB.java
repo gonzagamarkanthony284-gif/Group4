@@ -103,6 +103,8 @@ public class AuthServiceDB {
                 current = user;
 
                 LogManager.log("login " + username);
+                // Log to audit database
+                hpms.util.AuditLogService.logLogin(username, null);
                 out.add("Login successful");
             }
         } catch (SQLException e) {
@@ -120,7 +122,10 @@ public class AuthServiceDB {
         List<String> out = new ArrayList<>();
 
         if (current != null) {
-            LogManager.log("logout " + current.username);
+            String username = current.username;
+            LogManager.log("logout " + username);
+            // Log to audit database
+            hpms.util.AuditLogService.logLogout(username, null);
             current = null;
         }
 
@@ -185,6 +190,8 @@ public class AuthServiceDB {
                 stmt.executeUpdate();
 
                 LogManager.log("register " + username + " " + userRole);
+                // Log to audit database
+                hpms.util.AuditLogService.logCreate(current.username, "USER", username, "Registered new " + userRole + " user");
                 out.add("User registered: " + username);
             }
         } catch (SQLException e) {
@@ -239,6 +246,8 @@ public class AuthServiceDB {
 
                 lastPlain.put(username, password);
                 LogManager.log("register_patient " + username);
+                // Log to audit database
+                hpms.util.AuditLogService.logCreate("SYSTEM", "USER", username, "Patient account auto-created");
                 out.add("Patient account created: " + username);
             }
         } catch (SQLException e) {

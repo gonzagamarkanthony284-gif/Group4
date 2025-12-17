@@ -157,7 +157,12 @@ public class RoomsPanel extends JPanel {
             if (!p.isActive)
                 return;
             PatientStatus status = PatientStatusService.getStatus(id);
-            if (status == PatientStatus.INPATIENT) {
+            if (status != PatientStatus.INPATIENT)
+                return;
+            // Skip patients already assigned to any room
+            boolean alreadyAssigned = DataStore.rooms.values().stream()
+                    .anyMatch(r -> id.equals(r.occupantPatientId));
+            if (!alreadyAssigned) {
                 patientCombo.addItem(id + " - " + p.name);
             }
         });

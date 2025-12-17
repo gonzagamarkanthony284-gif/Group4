@@ -12,11 +12,9 @@ import hpms.ui.nurse.NurseDashboardPanel;
 import hpms.ui.cashier.CashierDashboardPanel;
 
 import javax.swing.*;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.table.DefaultTableModel;
+import javax.swing.table.*;
 import java.awt.*;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -24,21 +22,14 @@ import java.util.List;
 import java.util.Locale;
 
 public class MainGUI extends JFrame {
+    private static final long serialVersionUID = 1L;
     private final JPanel sidebar = new JPanel();
     private final JPanel content = new JPanel(new CardLayout());
     private SidebarButton currentSelected;
     private final java.util.concurrent.ScheduledExecutorService autosaveScheduler = java.util.concurrent.Executors
             .newSingleThreadScheduledExecutor();
-
-    // Periodic dashboard auto-refresh to keep metrics in sync across modules
     private javax.swing.Timer dashboardAutoRefresh;
 
-    private final DefaultTableModel patientsModel = new DefaultTableModel(
-            new String[] { "ID", "Name", "Age", "Gender", "Contact", "Address" }, 0) {
-        public boolean isCellEditable(int r, int c) {
-            return false;
-        }
-    };
     private final DefaultTableModel staffModel = new DefaultTableModel(
             new String[] { "Staff ID", "Name", "Department", "Details", "Status", "Joined Date" }, 0) {
         public boolean isCellEditable(int r, int c) {
@@ -93,19 +84,19 @@ public class MainGUI extends JFrame {
 
         if (role == UserRole.ADMIN) {
             menuList.addAll(java.util.Arrays.asList("Dashboard", "Staff", "Patients", "Appointments", "Billing",
-                    "Rooms", "Inventory", "Reports", "Settings", "Logout"));
+                    "Rooms", "Reports", "Settings", "Logout"));
         } else if (role == UserRole.DOCTOR) {
             menuList.addAll(
-                    java.util.Arrays.asList("Dashboard", "Patients", "Appointments", "Reports", "Settings", "Logout"));
+                    java.util.Arrays.asList("Dashboard", "Patients", "Appointments", "Settings", "Logout"));
         } else if (role == UserRole.NURSE) {
-            menuList.addAll(java.util.Arrays.asList("Dashboard", "Patients", "Appointments", "Rooms", "Reports",
+            menuList.addAll(java.util.Arrays.asList("Dashboard", "Patients", "Appointments", "Rooms",
                     "Settings", "Logout"));
         } else if (role == UserRole.CASHIER) {
-            menuList.addAll(java.util.Arrays.asList("Dashboard", "Billing", "Reports", "Settings", "Logout"));
+            menuList.addAll(java.util.Arrays.asList("Dashboard", "Billing", "Settings", "Logout"));
         } else {
             // Default staff menu (no admin, no patient access)
             menuList.addAll(java.util.Arrays.asList("Dashboard", "Patients", "Appointments", "Billing", "Rooms",
-                    "Reports", "Settings", "Logout"));
+                    "Settings", "Logout"));
         }
         SidebarButton dashboardBtn = null;
         for (String m : menuList) {
@@ -122,9 +113,48 @@ public class MainGUI extends JFrame {
         // add panels according to role visibility
         if (role == UserRole.DOCTOR) {
             hpms.auth.User u = hpms.auth.AuthService.current;
-            hpms.model.Staff s = u != null ? hpms.util.DataStore.staff.get(u.username) : null;
+            hpms.model.Staff s = null;
+            String staffId = null;
+            
+            // Find the staff record for this doctor user
+            if (u != null) {
+                System.err.println("DEBUG: Doctor login username: " + u.username);
+                System.err.println("DEBUG: Available staff IDs: " + String.join(", ", hpms.util.DataStore.staff.keySet()));
+                
+                // First try to find staff by username (for accounts where username = staffId)
+                s = hpms.util.DataStore.staff.get(u.username);
+                if (s != null) {
+                    staffId = s.id;
+                    System.err.println("DEBUG: Found staff by username: " + staffId);
+                } else {
+                    // If not found, search for staff where username might match name or other criteria
+                    for (hpms.model.Staff staff : hpms.util.DataStore.staff.values()) {
+                        if (staff.role == hpms.model.StaffRole.DOCTOR && 
+                            (u.username.equalsIgnoreCase(staff.id) || 
+                             u.username.equalsIgnoreCase(staff.name.replaceAll("\\s+", "").toLowerCase()))) {
+                            s = staff;
+                            staffId = staff.id;
+                            System.err.println("DEBUG: Found staff by search: " + staffId);
+                            break;
+                        }
+                    }
+                    
+                    // If still not found, create a temporary staff record or use the first available doctor
+                    if (s == null) {
+                        for (hpms.model.Staff staff : hpms.util.DataStore.staff.values()) {
+                            if (staff.role == hpms.model.StaffRole.DOCTOR) {
+                                s = staff;
+                                staffId = staff.id;
+                                System.err.println("DEBUG: Using fallback doctor: " + staffId);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            
             hpms.auth.AuthSession sessionObj = new hpms.auth.AuthSession(
-                    u != null ? u.username : "",
+                    staffId != null ? staffId : (u != null ? u.username : ""),
                     u != null ? u.username : "",
                     s != null && s.name != null ? s.name : (u != null ? u.username : "Doctor"),
                     hpms.model.UserRole.DOCTOR,
@@ -189,12 +219,12 @@ public class MainGUI extends JFrame {
                 content.add("Rooms", new RoomsPanel());
         }
 
+        // Services panel removed - only available in login UI
+
         // Add Staff panel for ADMIN users
         if (role == UserRole.ADMIN) {
             if (menuList.contains("Staff"))
                 content.add("Staff", new StaffPanel());
-            if (menuList.contains("Inventory"))
-                content.add("Inventory", new PharmacyPanel());
         }
 
         if (role != UserRole.CASHIER) {
@@ -224,20 +254,11 @@ public class MainGUI extends JFrame {
         dashboardAutoRefresh.setRepeats(true);
         dashboardAutoRefresh.start();
 
-        // periodic autosave and auto-save on close
-        autosaveScheduler.scheduleAtFixedRate(() -> {
-            try {
-                BackupUtil.saveToDefault();
-            } catch (Exception ex) {
-            }
-        }, 5, 5, java.util.concurrent.TimeUnit.MINUTES);
+        // Disabled periodic autosave - using database instead
         setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(java.awt.event.WindowEvent e) {
-                try {
-                    BackupUtil.saveToDefault();
-                } catch (Exception ex) {
-                }
+                // Disabled backup save - using database instead
                 try {
                     autosaveScheduler.shutdownNow();
                 } catch (Exception ex) {
@@ -284,7 +305,7 @@ public class MainGUI extends JFrame {
             case "Rooms":
                 return "Assign or vacate rooms and beds";
             case "Inventory":
-                return "Manage medicines and pharmacy inventory";
+                return "Manage hospital inventory and supplies";
             case "Staff":
                 return "Manage staff records and user accounts";
             case "Reports":
@@ -315,10 +336,7 @@ public class MainGUI extends JFrame {
         currentSelected = btn;
         currentSelected.setSelectedState(true);
         if (name.equals("Logout")) {
-            try {
-                hpms.util.BackupUtil.saveToDefault();
-            } catch (Exception ex) {
-            }
+            // Disabled backup save - using database instead
             AuthService.logout();
             new hpms.ui.login.LoginWindow().setVisible(true);
             dispose();
@@ -600,7 +618,7 @@ public class MainGUI extends JFrame {
 
     private void addStaffDialog() {
         // Use the new StaffRegistrationForm instead of a simple JOptionPane
-        StaffRegistrationForm form = new StaffRegistrationForm();
+        StaffRegistrationForm form = new StaffRegistrationForm(new hpms.auth.AuthSession("admin", "admin", "Administrator", hpms.model.UserRole.ADMIN, ""));
         form.addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosed(java.awt.event.WindowEvent e) {
@@ -631,7 +649,7 @@ public class MainGUI extends JFrame {
         String id = String.valueOf(t.getValueAt(i, 0));
         hpms.model.Staff staff = DataStore.staff.get(id);
         if (staff != null) {
-            new hpms.ui.staff.StaffDetailsDialog(this, staff).setVisible(true);
+            new hpms.ui.staff.StaffDetailsDialogModern(this, staff).setVisible(true);
         }
     }
 
@@ -762,10 +780,7 @@ public class MainGUI extends JFrame {
         String id = String.valueOf(t.getValueAt(i, 0));
         List<String> out = new ArrayList<>();
         DataStore.bills.remove(id);
-        try {
-            BackupUtil.saveToDefault();
-        } catch (Exception ex) {
-        }
+        // Disabled backup save - using database instead
         out.add("Bill deleted " + id);
         showOut(out);
         refreshTables();
@@ -971,10 +986,7 @@ public class MainGUI extends JFrame {
                 DataStore.allowedPaymentMethods.add(PaymentMethod.CARD);
             if (insurance.isSelected())
                 DataStore.allowedPaymentMethods.add(PaymentMethod.INSURANCE);
-            try {
-                BackupUtil.saveToDefault();
-            } catch (Exception ex) {
-            }
+            // Disabled backup save - using database instead
             JOptionPane.showMessageDialog(this, "Settings saved");
         });
         JButton changePwd = new JButton("Change Password");
